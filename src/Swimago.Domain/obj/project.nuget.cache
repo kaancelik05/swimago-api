@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "7IecnlOQBEo=",
+  "success": true,
+  "projectFilePath": "/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/Swimago.Domain.csproj",
+  "expectedPackageFiles": [
+    "/Users/kaancelik/.nuget/packages/nettopologysuite/2.6.0/nettopologysuite.2.6.0.nupkg.sha512"
+  ],
+  "logs": []
+}

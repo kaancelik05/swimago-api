@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3996655E-BB22-473C-B19D-0E0907EAC488}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Swimago.Domain", "src\Swimago.Domain\Swimago.Domain.csproj", "{52EC500A-B12E-42D0-94B8-1FB2577BAF17}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Swimago.Application", "src\Swimago.Application\Swimago.Application.csproj", "{047335A0-71C7-4CBD-993C-3BD596A435FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Swimago.Infrastructure", "src\Swimago.Infrastructure\Swimago.Infrastructure.csproj", "{641BA2DB-8042-4234-A57C-D261F4408CC7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Swimago.API", "src\Swimago.API\Swimago.API.csproj", "{42CAF1D2-8CC3-49D4-8AC8-EA93D7ED6F33}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{52EC500A-B12E-42D0-94B8-1FB2577BAF17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52EC500A-B12E-42D0-94B8-1FB2577BAF17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52EC500A-B12E-42D0-94B8-1FB2577BAF17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52EC500A-B12E-42D0-94B8-1FB2577BAF17}.Release|Any CPU.Build.0 = Release|Any CPU
+		{047335A0-71C7-4CBD-993C-3BD596A435FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{047335A0-71C7-4CBD-993C-3BD596A435FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{047335A0-71C7-4CBD-993C-3BD596A435FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{047335A0-71C7-4CBD-993C-3BD596A435FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{641BA2DB-8042-4234-A57C-D261F4408CC7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{641BA2DB-8042-4234-A57C-D261F4408CC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{641BA2DB-8042-4234-A57C-D261F4408CC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{641BA2DB-8042-4234-A57C-D261F4408CC7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42CAF1D2-8CC3-49D4-8AC8-EA93D7ED6F33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42CAF1D2-8CC3-49D4-8AC8-EA93D7ED6F33}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42CAF1D2-8CC3-49D4-8AC8-EA93D7ED6F33}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42CAF1D2-8CC3-49D4-8AC8-EA93D7ED6F33}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{52EC500A-B12E-42D0-94B8-1FB2577BAF17} = {3996655E-BB22-473C-B19D-0E0907EAC488}
+		{047335A0-71C7-4CBD-993C-3BD596A435FA} = {3996655E-BB22-473C-B19D-0E0907EAC488}
+		{641BA2DB-8042-4234-A57C-D261F4408CC7} = {3996655E-BB22-473C-B19D-0E0907EAC488}
+		{42CAF1D2-8CC3-49D4-8AC8-EA93D7ED6F33} = {3996655E-BB22-473C-B19D-0E0907EAC488}
+	EndGlobalSection
+EndGlobal

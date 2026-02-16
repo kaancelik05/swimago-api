@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/Swimago.API.props" />
+</Project>

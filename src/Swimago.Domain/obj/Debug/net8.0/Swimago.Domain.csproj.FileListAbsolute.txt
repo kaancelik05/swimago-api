@@ -1,0 +1,12 @@
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/bin/Debug/net8.0/Swimago.Domain.deps.json
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/bin/Debug/net8.0/Swimago.Domain.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/bin/Debug/net8.0/Swimago.Domain.pdb
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.csproj.AssemblyReference.cache
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.AssemblyInfoInputs.cache
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.AssemblyInfo.cs
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.csproj.CoreCompileInputs.cache
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/refint/Swimago.Domain.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.pdb
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/ref/Swimago.Domain.dll
