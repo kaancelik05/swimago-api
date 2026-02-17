@@ -18,3 +18,4 @@
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Infrastructure/obj/Debug/net8.0/Swimago.Infrastructure.pdb
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Infrastructure/obj/Debug/net8.0/Swimago.Infrastructure.genruntimeconfig.cache
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Infrastructure/obj/Debug/net8.0/ref/Swimago.Infrastructure.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Infrastructure/obj/Debug/net8.0/Swimago.Infrastructure.sourcelink.json

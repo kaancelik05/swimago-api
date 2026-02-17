@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.PaymentMethods;
 using Swimago.Application.Interfaces;
 using System.Security.Claims;
 
 namespace Swimago.API.Controllers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
 [ApiController]
 [Route("api/payment-methods")]
 [Produces("application/json")]

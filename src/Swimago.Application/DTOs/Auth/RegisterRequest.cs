@@ -1,5 +1,3 @@
-using Swimago.Domain.Enums;
-
 namespace Swimago.Application.DTOs.Auth;
 
 public record RegisterRequest(
@@ -7,6 +5,5 @@ public record RegisterRequest(
     string Password,
     string FirstName,
     string LastName,
-    string? PhoneNumber = null,
-    Role Role = Role.Customer
+    string? PhoneNumber = null
 );

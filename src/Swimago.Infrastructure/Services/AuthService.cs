@@ -42,7 +42,7 @@ public class AuthService : IAuthService
         {
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            Role = request.Role,
+            Role = Role.Customer,
             CreatedAt = DateTime.UtcNow,
             IsEmailVerified = false
         };
@@ -60,11 +60,19 @@ public class AuthService : IAuthService
         return await GenerateAuthResponse(user);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<AuthResponse> LoginAsync(
+        LoginRequest request,
+        Role? requiredRole = null,
+        CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            throw new AuthenticationException("Invalid email or password");
+        }
+
+        if (requiredRole.HasValue && user.Role != requiredRole.Value)
         {
             throw new AuthenticationException("Invalid email or password");
         }

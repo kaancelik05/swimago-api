@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Reservations;
 using Swimago.Application.Interfaces;
 using Swimago.Domain.Enums;
@@ -10,7 +11,7 @@ namespace Swimago.API.Controllers;
 /// <summary>
 /// Reservation management endpoints for booking beaches, pools, and boat tours
 /// </summary>
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]

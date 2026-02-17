@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Admin.Destinations;
 using Swimago.Application.DTOs.Admin.Shared;
 using Swimago.Application.Interfaces;
 
 namespace Swimago.API.Controllers.Admin;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 [ApiController]
 [Route("api/admin/destinations")]
 [Produces("application/json")]

@@ -1,7 +1,7 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Swimago.API.Attributes;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Common;
 using Swimago.Application.DTOs.Listings;
 using Swimago.Domain.Interfaces;
@@ -144,8 +144,7 @@ public class ListingsController : ControllerBase
     /// <summary>
     /// Create a new listing (Host only)
     /// </summary>
-    [Authorize]
-    [AuthorizeRoles(Role.Host, Role.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.HostOnly)]
     [HttpPost]
     [ProducesResponseType(typeof(ListingResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -164,8 +163,7 @@ public class ListingsController : ControllerBase
     /// <summary>
     /// Upload photos for a listing
     /// </summary>
-    [Authorize]
-    [AuthorizeRoles(Role.Host, Role.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.HostOnly)]
     [HttpPost("photos/upload")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

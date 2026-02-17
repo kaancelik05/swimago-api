@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Favorites;
 using Swimago.Application.Interfaces;
 using Swimago.Domain.Enums;
@@ -7,7 +8,7 @@ using System.Security.Claims;
 
 namespace Swimago.API.Controllers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]

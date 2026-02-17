@@ -7,5 +7,6 @@ public enum ReservationStatus
     InProgress,
     Completed,
     Cancelled,
-    NoShow
+    NoShow,
+    Rejected
 }

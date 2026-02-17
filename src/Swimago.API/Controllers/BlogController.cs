@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Swimago.API.Attributes;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Blog;
 using Swimago.Application.DTOs.Common;
 using Swimago.Application.Interfaces;
-using Swimago.Domain.Enums;
 using System.Security.Claims;
 
 namespace Swimago.API.Controllers;
@@ -57,7 +56,7 @@ public class BlogController : ControllerBase
     /// <summary>
     /// Create a new blog post (Admin only)
     /// </summary>
-    [AuthorizeRoles(Role.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPost]
     [ProducesResponseType(typeof(BlogPostDto), StatusCodes.Status201Created)]
     public async Task<IActionResult> Create([FromBody] CreateBlogPostRequest request, CancellationToken cancellationToken)
@@ -70,7 +69,7 @@ public class BlogController : ControllerBase
     /// <summary>
     /// Update an existing blog post (Author or Admin)
     /// </summary>
-    [AuthorizeRoles(Role.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPut("{id}")]
     [ProducesResponseType(typeof(BlogPostDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateBlogPostRequest request, CancellationToken cancellationToken)
@@ -83,7 +82,7 @@ public class BlogController : ControllerBase
     /// <summary>
     /// Delete a blog post (Author or Admin)
     /// </summary>
-    [AuthorizeRoles(Role.Admin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

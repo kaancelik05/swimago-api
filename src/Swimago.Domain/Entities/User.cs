@@ -30,6 +30,7 @@ public class User
     public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
     public ICollection<PaymentMethod> PaymentMethods { get; set; } = new List<PaymentMethod>();
+    public HostBusinessSettings? HostBusinessSettings { get; set; }
 }
 
 // Embedded settings classes for JSONB storage

@@ -336,6 +336,87 @@ namespace Swimago.Infrastructure.Migrations
                     b.ToTable("Favorites");
                 });
 
+            modelBuilder.Entity("Swimago.Domain.Entities.HostBusinessSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowSameDayBookings")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AutoConfirmReservations")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CancellationWindowHours")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("DynamicPricingEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EmailNotifications")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("HostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MinimumNoticeHours")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("SmartOverbookingProtection")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WhatsappNotifications")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostId")
+                        .IsUnique();
+
+                    b.ToTable("HostBusinessSettings");
+                });
+
+            modelBuilder.Entity("Swimago.Domain.Entities.HostListingMetadata", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AvailabilityNotes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Highlights")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("ListingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SeatingAreas")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ListingId")
+                        .IsUnique();
+
+                    b.ToTable("HostListingMetadata");
+                });
+
             modelBuilder.Entity("Swimago.Domain.Entities.Listing", b =>
                 {
                     b.Property<Guid>("Id")
@@ -685,6 +766,9 @@ namespace Swimago.Infrastructure.Migrations
                     b.Property<string>("Selections")
                         .HasColumnType("jsonb");
 
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
+
                     b.Property<string>("SpecialRequests")
                         .HasColumnType("jsonb");
 
@@ -714,6 +798,8 @@ namespace Swimago.Infrastructure.Migrations
                     b.HasIndex("GuestId");
 
                     b.HasIndex("ListingId");
+
+                    b.HasIndex("Source");
 
                     b.HasIndex("StartTime");
 
@@ -961,6 +1047,28 @@ namespace Swimago.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Swimago.Domain.Entities.HostBusinessSettings", b =>
+                {
+                    b.HasOne("Swimago.Domain.Entities.User", "Host")
+                        .WithOne("HostBusinessSettings")
+                        .HasForeignKey("Swimago.Domain.Entities.HostBusinessSettings", "HostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Host");
+                });
+
+            modelBuilder.Entity("Swimago.Domain.Entities.HostListingMetadata", b =>
+                {
+                    b.HasOne("Swimago.Domain.Entities.Listing", "Listing")
+                        .WithOne("HostMetadata")
+                        .HasForeignKey("Swimago.Domain.Entities.HostListingMetadata", "ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Listing");
+                });
+
             modelBuilder.Entity("Swimago.Domain.Entities.Listing", b =>
                 {
                     b.HasOne("Swimago.Domain.Entities.User", "Host")
@@ -1111,6 +1219,8 @@ namespace Swimago.Infrastructure.Migrations
 
                     b.Navigation("Favorites");
 
+                    b.Navigation("HostMetadata");
+
                     b.Navigation("Images");
 
                     b.Navigation("PricingCalendar");
@@ -1130,6 +1240,8 @@ namespace Swimago.Infrastructure.Migrations
             modelBuilder.Entity("Swimago.Domain.Entities.User", b =>
                 {
                     b.Navigation("Favorites");
+
+                    b.Navigation("HostBusinessSettings");
 
                     b.Navigation("Listings");
 

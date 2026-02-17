@@ -1,189 +1,186 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Swimago.Application.DTOs.Destinations;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Host;
 using Swimago.Application.Interfaces;
-using Swimago.Domain.Enums;
 using System.Security.Claims;
 
 namespace Swimago.API.Controllers;
 
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.HostOnly)]
 [ApiController]
 [Route("api/host")]
 [Produces("application/json")]
 public class HostController : ControllerBase
 {
     private readonly IHostService _hostService;
-    private readonly ILogger<HostController> _logger;
 
-    public HostController(
-        IHostService hostService,
-        ILogger<HostController> logger)
+    public HostController(IHostService hostService)
     {
         _hostService = hostService;
-        _logger = logger;
     }
 
-    /// <summary>
-    /// Get host dashboard stats
-    /// </summary>
-    [HttpGet("dashboard")]
-    [ProducesResponseType(typeof(HostDashboardResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _hostService.GetDashboardAsync(userId, cancellationToken);
-        return Ok(result);
-    }
-
-    /// <summary>
-    /// Get host's own listings
-    /// </summary>
     [HttpGet("listings")]
-    [ProducesResponseType(typeof(HostListingListResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMyListings(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(HostListingsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetListings(
+        [FromQuery] string? status,
+        [FromQuery] string? type,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _hostService.GetMyListingsAsync(userId, cancellationToken);
+        try
+        {
+            var result = await _hostService.GetListingsAsync(GetUserId(), status, type, page, pageSize, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("listings/{id:guid}")]
+    [ProducesResponseType(typeof(HostListingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetListing(Guid id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _hostService.GetListingAsync(GetUserId(), id, cancellationToken);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost("listings")]
+    [ProducesResponseType(typeof(HostListingDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateListing([FromBody] UpsertHostListingRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _hostService.CreateListingAsync(GetUserId(), request, cancellationToken);
+            return CreatedAtAction(nameof(GetListing), new { id = result.Id }, result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("listings/{id:guid}")]
+    [ProducesResponseType(typeof(HostListingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateListing(Guid id, [FromBody] UpsertHostListingRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _hostService.UpdateListingAsync(GetUserId(), id, request, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPatch("listings/{id:guid}/status")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateListingStatus(Guid id, [FromBody] UpdateHostListingStatusRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _hostService.UpdateListingStatusAsync(GetUserId(), id, request, cancellationToken);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpGet("dashboard/stats")]
+    [ProducesResponseType(typeof(DashboardStatsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboardStats(CancellationToken cancellationToken = default)
+    {
+        var result = await _hostService.GetDashboardStatsAsync(GetUserId(), cancellationToken);
         return Ok(result);
     }
 
-    /// <summary>
-    /// Get host's listing details
-    /// </summary>
-    [HttpGet("listings/{id}")]
-    [ProducesResponseType(typeof(HostListingItemDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetListing(Guid id, CancellationToken cancellationToken)
+    [HttpGet("reservations/recent")]
+    [ProducesResponseType(typeof(IEnumerable<HostReservationDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRecentReservations([FromQuery] int limit = 7, CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
-        try
-        {
-            var result = await _hostService.GetListingAsync(userId, id, cancellationToken);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "İlan bulunamadı" });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
+        var result = await _hostService.GetRecentReservationsAsync(GetUserId(), limit, cancellationToken);
+        return Ok(result);
     }
 
-    /// <summary>
-    /// Update listing basic info
-    /// </summary>
-    [HttpPut("listings/{id}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateListing(Guid id, [FromBody] UpdateListingRequest request, CancellationToken cancellationToken)
+    [HttpGet("insights")]
+    [ProducesResponseType(typeof(IEnumerable<HostInsightDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetInsights(CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
-        try
-        {
-            await _hostService.UpdateListingAsync(userId, id, request, cancellationToken);
-            return NoContent(); // Success, no content needed
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "İlan bulunamadı" });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
+        var result = await _hostService.GetInsightsAsync(GetUserId(), cancellationToken);
+        return Ok(result);
     }
 
-    /// <summary>
-    /// Update listing pricing
-    /// </summary>
-    [HttpPut("listings/{id}/pricing")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdatePricing(Guid id, [FromBody] UpdatePricingRequest request, CancellationToken cancellationToken)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
-        try
-        {
-            await _hostService.UpdatePricingAsync(userId, id, request, cancellationToken);
-            return NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "İlan bulunamadı" });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
-    }
-
-    /// <summary>
-    /// Delete (deactivate) listing
-    /// </summary>
-    [HttpDelete("listings/{id}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteListing(Guid id, CancellationToken cancellationToken)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
-        try
-        {
-            await _hostService.DeleteListingAsync(userId, id, cancellationToken);
-            return NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "İlan bulunamadı" });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
-    }
-
-    /// <summary>
-    /// Get reservations for host's listings
-    /// </summary>
     [HttpGet("reservations")]
-    [ProducesResponseType(typeof(HostReservationListResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMyReservations([FromQuery] ReservationStatus? status, CancellationToken cancellationToken)
-    {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _hostService.GetReservationsAsync(userId, status, cancellationToken);
-        return Ok(result);
-    }
-
-    /// <summary>
-    /// Update reservation status
-    /// </summary>
-    [HttpPut("reservations/{id}/status")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(HostReservationsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateReservationStatus(Guid id, [FromBody] UpdateReservationStatusRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetReservations(
+        [FromQuery] string? status = "all",
+        [FromQuery] string? source = "all",
+        [FromQuery] string? listingId = "all",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
         try
         {
-            await _hostService.UpdateReservationStatusAsync(userId, id, request, cancellationToken);
-            return NoContent();
+            var result = await _hostService.GetReservationsAsync(
+                GetUserId(),
+                status,
+                source,
+                listingId,
+                page,
+                pageSize,
+                cancellationToken);
+            return Ok(result);
         }
-        catch (KeyNotFoundException)
+        catch (ArgumentException ex)
         {
-            return NotFound(new { error = "Rezervasyon bulunamadı" });
+            return BadRequest(new { error = ex.Message });
         }
         catch (UnauthorizedAccessException)
         {
@@ -191,47 +188,164 @@ public class HostController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get listing calendar
-    /// </summary>
-    [HttpGet("calendar")]
-    [ProducesResponseType(typeof(HostCalendarResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetCalendar([FromQuery] Guid listingId, [FromQuery] DateTime start, [FromQuery] DateTime end, CancellationToken cancellationToken)
+    [HttpPatch("reservations/{id:guid}/status")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateReservationStatus(Guid id, [FromBody] UpdateHostReservationStatusRequest request, CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
         try
         {
-            var result = await _hostService.GetCalendarAsync(userId, listingId, start, end, cancellationToken);
+            await _hostService.UpdateReservationStatusAsync(GetUserId(), id, request, cancellationToken);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost("reservations/manual")]
+    [ProducesResponseType(typeof(HostReservationDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateManualReservation([FromBody] CreateManualReservationRequest request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _hostService.CreateManualReservationAsync(GetUserId(), request, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpGet("calendar")]
+    [ProducesResponseType(typeof(IEnumerable<CalendarDayDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCalendar(
+        [FromQuery] Guid listingId,
+        [FromQuery] int month,
+        [FromQuery] int year,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _hostService.GetCalendarAsync(GetUserId(), listingId, month, year, cancellationToken);
             return Ok(result);
         }
-        catch (KeyNotFoundException)
+        catch (ArgumentException ex)
         {
-            return NotFound(new { error = "İlan bulunamadı" });
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
     }
 
-    /// <summary>
-    /// Update calendar availability/pricing
-    /// </summary>
     [HttpPut("calendar")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> UpdateCalendar([FromBody] UpdateCalendarRequest request, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateCalendar([FromBody] UpdateCalendarRequest request, CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        await _hostService.UpdateCalendarAsync(userId, request, cancellationToken);
-        return Ok(new { message = "Takvim güncellendi" });
+        try
+        {
+            await _hostService.UpdateCalendarAsync(GetUserId(), request, cancellationToken);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
     }
 
-    /// <summary>
-    /// Get analytics
-    /// </summary>
     [HttpGet("analytics")]
-    [ProducesResponseType(typeof(HostAnalyticsResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAnalytics([FromQuery] DateTime start, [FromQuery] DateTime end, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(HostAnalyticsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAnalytics(
+        [FromQuery] string period = "month",
+        [FromQuery] string? listingId = "all",
+        CancellationToken cancellationToken = default)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _hostService.GetAnalyticsAsync(userId, start, end, cancellationToken);
+        try
+        {
+            var result = await _hostService.GetAnalyticsAsync(GetUserId(), period, listingId, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpGet("business-settings")]
+    [ProducesResponseType(typeof(BusinessSettingsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetBusinessSettings(CancellationToken cancellationToken = default)
+    {
+        var result = await _hostService.GetBusinessSettingsAsync(GetUserId(), cancellationToken);
         return Ok(result);
+    }
+
+    [HttpPut("business-settings")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateBusinessSettings([FromBody] BusinessSettingsDto request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _hostService.UpdateBusinessSettingsAsync(GetUserId(), request, cancellationToken);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    private Guid GetUserId()
+    {
+        return Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     }
 }

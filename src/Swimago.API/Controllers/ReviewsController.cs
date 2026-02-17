@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Reviews;
 using Swimago.Application.Interfaces;
 using System.Security.Claims;
@@ -9,7 +10,6 @@ namespace Swimago.API.Controllers;
 /// <summary>
 /// Review and rating management endpoints
 /// </summary>
-[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
@@ -33,6 +33,7 @@ public class ReviewsController : ControllerBase
     /// <response code="201">Review created successfully</response>
     /// <response code="400">User hasn't completed a reservation for this listing or already reviewed</response>
     /// <response code="404">Listing not found</response>
+    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
     [HttpPost]
     [ProducesResponseType(typeof(ReviewResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -114,6 +115,7 @@ public class ReviewsController : ControllerBase
     /// <response code="400">Review already has a host response</response>
     /// <response code="403">User is not the host of this listing</response>
     /// <response code="404">Review not found</response>
+    [Authorize(Policy = AuthorizationPolicies.HostOnly)]
     [HttpPost("{id}/host-response")]
     [ProducesResponseType(typeof(ReviewResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -158,6 +160,7 @@ public class ReviewsController : ControllerBase
     /// <response code="204">Review deleted successfully</response>
     /// <response code="403">User is not the review author</response>
     /// <response code="404">Review not found</response>
+    [Authorize(Policy = AuthorizationPolicies.CustomerOnly)]
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

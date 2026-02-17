@@ -36,6 +36,7 @@ public class Reservation
     
     // Status
     public ReservationStatus Status { get; set; }
+    public ReservationSource Source { get; set; } = ReservationSource.Online;
     public string? ConfirmationNumber { get; set; }
     public string? CheckInCode { get; set; }
     public Dictionary<string, string>? SpecialRequests { get; set; } // Multi-language

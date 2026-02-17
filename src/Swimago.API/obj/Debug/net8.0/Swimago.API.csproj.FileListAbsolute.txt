@@ -132,3 +132,4 @@
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.API/obj/Debug/net8.0/Swimago.API.pdb
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.API/obj/Debug/net8.0/Swimago.API.genruntimeconfig.cache
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.API/obj/Debug/net8.0/ref/Swimago.API.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.API/obj/Debug/net8.0/Swimago.API.sourcelink.json

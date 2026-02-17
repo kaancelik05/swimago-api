@@ -67,6 +67,7 @@ public class Listing
     public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
     public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
+    public HostListingMetadata? HostMetadata { get; set; }
 }
 
 // Embedded class for conditions stored as JSONB

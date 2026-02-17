@@ -10,3 +10,4 @@
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/refint/Swimago.Domain.dll
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.pdb
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/ref/Swimago.Domain.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Domain/obj/Debug/net8.0/Swimago.Domain.sourcelink.json

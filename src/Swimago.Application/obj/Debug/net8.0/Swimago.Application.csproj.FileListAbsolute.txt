@@ -13,3 +13,4 @@
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Debug/net8.0/refint/Swimago.Application.dll
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Debug/net8.0/Swimago.Application.pdb
 /Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Debug/net8.0/ref/Swimago.Application.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Debug/net8.0/Swimago.Application.sourcelink.json

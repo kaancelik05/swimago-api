@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
+using Swimago.API.Authorization;
 using Swimago.Infrastructure.Data;
 using Swimago.Application;
+using Swimago.Domain.Enums;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var seedMockData = builder.Configuration.GetValue<bool>("MockSeed:Enabled");
 
 // Add DbContext with PostgreSQL and PostGIS
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -31,6 +34,9 @@ builder.Services.AddScoped<Swimago.Domain.Interfaces.IPaymentMethodRepository, S
 builder.Services.AddScoped<Swimago.Domain.Interfaces.INewsletterRepository, Swimago.Infrastructure.Repositories.NewsletterRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.ICityRepository, Swimago.Infrastructure.Repositories.CityRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.IAmenityRepository, Swimago.Infrastructure.Repositories.AmenityRepository>();
+builder.Services.AddScoped<Swimago.Domain.Interfaces.IDailyPricingRepository, Swimago.Infrastructure.Repositories.DailyPricingRepository>();
+builder.Services.AddScoped<Swimago.Domain.Interfaces.IHostBusinessSettingsRepository, Swimago.Infrastructure.Repositories.HostBusinessSettingsRepository>();
+builder.Services.AddScoped<Swimago.Domain.Interfaces.IHostListingMetadataRepository, Swimago.Infrastructure.Repositories.HostListingMetadataRepository>();
 
 // Register Application Services (including Validators)
 builder.Services.AddApplication();
@@ -70,8 +76,22 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"]!))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"]!)),
+        NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier,
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
     };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.CustomerOnly, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(Role.Customer.ToString()));
+
+    options.AddPolicy(AuthorizationPolicies.HostOnly, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(Role.Host.ToString()));
+
+    options.AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(Role.Admin.ToString()));
 });
 
 
@@ -145,6 +165,25 @@ builder.Services.AddSwaggerGen(options =>
 
 
 var app = builder.Build();
+
+if (seedMockData)
+{
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("MockDataSeeder");
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    try
+    {
+        await MockDataSeeder.SeedAsync(dbContext, logger);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Mock data seeding failed.");
+        throw;
+    }
+}
 
 // Configure the HTTP request pipeline
 app.UseMiddleware<Swimago.API.Middleware.SecurityHeadersMiddleware>();

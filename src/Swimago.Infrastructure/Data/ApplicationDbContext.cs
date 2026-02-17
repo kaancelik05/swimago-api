@@ -32,6 +32,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<NewsletterSubscriber> NewsletterSubscribers { get; set; }
     public DbSet<City> Cities { get; set; }
     public DbSet<Destination> Destinations { get; set; }
+    public DbSet<HostBusinessSettings> HostBusinessSettings { get; set; }
+    public DbSet<HostListingMetadata> HostListingMetadata { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,6 +120,9 @@ public class ApplicationDbContext : DbContext
             .HasIndex(r => r.ConfirmationNumber)
             .IsUnique();
 
+        modelBuilder.Entity<Reservation>()
+            .HasIndex(r => r.Source);
+
         // DailyPricing - Composite Index
         modelBuilder.Entity<DailyPricing>()
             .HasIndex(dp => new { dp.ListingId, dp.Date });
@@ -172,6 +177,26 @@ public class ApplicationDbContext : DbContext
         // City - Index
         modelBuilder.Entity<City>()
             .HasIndex(c => c.Country);
+
+        // Host business settings
+        modelBuilder.Entity<HostBusinessSettings>()
+            .HasIndex(x => x.HostId)
+            .IsUnique();
+
+        modelBuilder.Entity<HostBusinessSettings>()
+            .HasOne(x => x.Host)
+            .WithOne(u => u.HostBusinessSettings)
+            .HasForeignKey<HostBusinessSettings>(x => x.HostId);
+
+        // Host listing metadata
+        modelBuilder.Entity<HostListingMetadata>()
+            .HasIndex(x => x.ListingId)
+            .IsUnique();
+
+        modelBuilder.Entity<HostListingMetadata>()
+            .HasOne(x => x.Listing)
+            .WithOne(l => l.HostMetadata)
+            .HasForeignKey<HostListingMetadata>(x => x.ListingId);
     }
 
     private void ConfigureJsonbProperties(ModelBuilder modelBuilder)
@@ -370,6 +395,22 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Listing>()
             .Property(l => l.Details)
             .HasColumnType("jsonb"); // No conversion needed for raw JSON string
+
+        modelBuilder.Entity<HostListingMetadata>()
+            .Property(x => x.Highlights)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, jsonSerializerOptions),
+                v => JsonSerializer.Deserialize<List<string>>(v, jsonSerializerOptions) ?? new List<string>()
+            );
+
+        modelBuilder.Entity<HostListingMetadata>()
+            .Property(x => x.SeatingAreas)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, jsonSerializerOptions),
+                v => JsonSerializer.Deserialize<List<HostSeatingArea>>(v, jsonSerializerOptions) ?? new List<HostSeatingArea>()
+            );
 
         // Destination
         modelBuilder.Entity<Destination>()

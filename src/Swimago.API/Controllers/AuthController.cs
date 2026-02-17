@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swimago.Application.DTOs.Auth;
 using Swimago.Application.Interfaces;
+using Swimago.Domain.Enums;
 using System.Security.Authentication;
 using System.Security.Claims;
 
@@ -66,7 +67,7 @@ public class AuthController : ControllerBase
         {
             _logger.LogInformation("Login attempt for {Email}", request.Email);
             
-            var response = await _authService.LoginAsync(request, cancellationToken);
+            var response = await _authService.LoginAsync(request, cancellationToken: cancellationToken);
             
             _logger.LogInformation("Login successful for {Email}", request.Email);
             
@@ -83,6 +84,33 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { error = "Giriş sırasında beklenmeyen bir hata oluştu" });
         }
     }
+
+    /// <summary>
+    /// Login for customer application
+    /// </summary>
+    [HttpPost("login/customer")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<IActionResult> LoginCustomer([FromBody] LoginRequest request, CancellationToken cancellationToken) =>
+        LoginByRole(request, Role.Customer, cancellationToken);
+
+    /// <summary>
+    /// Login for host panel
+    /// </summary>
+    [HttpPost("login/host")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<IActionResult> LoginHost([FromBody] LoginRequest request, CancellationToken cancellationToken) =>
+        LoginByRole(request, Role.Host, cancellationToken);
+
+    /// <summary>
+    /// Login for admin panel
+    /// </summary>
+    [HttpPost("login/admin")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<IActionResult> LoginAdmin([FromBody] LoginRequest request, CancellationToken cancellationToken) =>
+        LoginByRole(request, Role.Admin, cancellationToken);
 
     /// <summary>
     /// Logout current user (invalidate token)
@@ -196,6 +224,33 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during password reset");
             return StatusCode(500, new { error = "Şifre sıfırlama sırasında bir hata oluştu" });
+        }
+    }
+
+    private async Task<IActionResult> LoginByRole(LoginRequest request, Role requiredRole, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Role-based login attempt for {Email}. RequiredRole={Role}", request.Email, requiredRole);
+
+            var response = await _authService.LoginAsync(request, requiredRole, cancellationToken);
+
+            _logger.LogInformation("Role-based login successful for {Email}. Role={Role}", request.Email, requiredRole);
+            return Ok(response);
+        }
+        catch (AuthenticationException ex)
+        {
+            _logger.LogWarning(
+                "Role-based login failed for {Email}. RequiredRole={Role}. Message={Message}",
+                request.Email,
+                requiredRole,
+                ex.Message);
+            return Unauthorized(new { error = "Geçersiz e-posta, şifre veya kullanıcı tipi" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during role-based login for {Email}. RequiredRole={Role}", request.Email, requiredRole);
+            return StatusCode(500, new { error = "Giriş sırasında beklenmeyen bir hata oluştu" });
         }
     }
 }
