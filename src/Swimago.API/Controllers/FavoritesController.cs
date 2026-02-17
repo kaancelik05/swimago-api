@@ -30,10 +30,16 @@ public class FavoritesController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(FavoriteListResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll([FromQuery] VenueType? type, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] VenueType? type,
+        [FromQuery] string? search,
+        [FromQuery] string? sortBy,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _favoriteService.GetFavoritesAsync(userId, type, cancellationToken);
+        var result = await _favoriteService.GetFavoritesAsync(userId, type, search, sortBy, page, pageSize, cancellationToken);
         return Ok(result);
     }
 

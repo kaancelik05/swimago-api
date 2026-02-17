@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Swimago.Application.DTOs.Destinations;
 using Swimago.Application.Interfaces;
-using Swimago.Domain.Entities;
 using Swimago.Domain.Enums;
 using Swimago.Domain.Interfaces;
 
@@ -9,89 +8,119 @@ namespace Swimago.Application.Services;
 
 public class DestinationService : IDestinationService
 {
-    private readonly ICityRepository _cityRepository;
     private readonly IListingRepository _listingRepository;
     private readonly ILogger<DestinationService> _logger;
 
     public DestinationService(
-        ICityRepository cityRepository,
         IListingRepository listingRepository,
         ILogger<DestinationService> logger)
     {
-        _cityRepository = cityRepository;
         _listingRepository = listingRepository;
         _logger = logger;
     }
 
-    public async Task<DestinationListResponse> GetAllDestinationsAsync(bool? featured, CancellationToken cancellationToken = default)
+    public async Task<DestinationListResponse> GetAllDestinationsAsync(
+        bool? featured,
+        string? type = null,
+        string? search = null,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Fetching destinations, featured: {Featured}", featured);
+        _logger.LogInformation(
+            "Fetching destinations: featured={Featured}, type={Type}, search={Search}, page={Page}, pageSize={PageSize}",
+            featured,
+            type,
+            search,
+            page,
+            pageSize);
 
-        var cities = await _cityRepository.GetAllAsync(cancellationToken);
-        var activeListings = await _listingRepository.GetActiveListingsAsync(cancellationToken);
+        var safePage = Math.Max(1, page);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
 
-        var destinations = cities
-            .Where(c => c.IsActive)
-            .Select(city =>
+        var activeListings = (await _listingRepository.GetActiveListingsAsync(cancellationToken))
+            .Where(x => x.Type is ListingType.Beach or ListingType.Pool)
+            .ToList();
+
+        var grouped = activeListings
+            .GroupBy(x => new { City = x.City.Trim(), Country = x.Country?.Trim() })
+            .Select(group =>
             {
-                var cityName = city.Name.GetValueOrDefault("tr") ?? city.Name.Values.FirstOrDefault() ?? "";
-                var cityListings = activeListings.Where(l => 
-                    l.City.Equals(cityName, StringComparison.OrdinalIgnoreCase) ||
-                    l.City.Equals(city.Name.GetValueOrDefault("en") ?? "", StringComparison.OrdinalIgnoreCase));
-                
+                var cityListings = group.ToList();
+                var cityType = DetermineDestinationType(cityListings);
+                var primaryListing = cityListings
+                    .OrderByDescending(x => x.IsFeatured)
+                    .ThenByDescending(x => x.Rating)
+                    .First();
+
                 return new DestinationItemDto(
-                    Id: city.Id,
-                    Slug: FormatSlug(cityName),
-                    Name: cityName,
-                    Country: city.Country,
-                    ImageUrl: null, 
-                    SpotCount: cityListings.Count(),
-                    MinPrice: cityListings.Any() ? cityListings.Min(l => l.BasePricePerDay) : null,
-                    MaxPrice: cityListings.Any() ? cityListings.Max(l => l.BasePricePerDay) : null,
-                    AverageRating: cityListings.Any() ? cityListings.Average(l => l.Rating) : null,
-                    IsFeatured: false 
+                    Id: primaryListing.Id,
+                    Slug: FormatSlug(group.Key.City),
+                    Name: group.Key.City,
+                    Country: group.Key.Country,
+                    ImageUrl: primaryListing.Images.FirstOrDefault(x => x.IsCover)?.Url
+                        ?? primaryListing.Images.FirstOrDefault()?.Url,
+                    SpotCount: cityListings.Count,
+                    Type: cityType,
+                    MinPrice: cityListings.Min(x => x.BasePricePerDay),
+                    MaxPrice: cityListings.Max(x => x.BasePricePerDay),
+                    AverageRating: cityListings.Average(x => x.Rating),
+                    IsFeatured: cityListings.Any(x => x.IsFeatured)
                 );
-            })
-            .Where(d => d.SpotCount > 0);
+            });
 
-        var destinationList = destinations.OrderBy(d => d.Name).ToList();
+        if (featured.HasValue)
+        {
+            grouped = grouped.Where(x => x.IsFeatured == featured.Value);
+        }
 
-        return new DestinationListResponse(destinationList, destinationList.Count);
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            grouped = grouped.Where(x => x.Type.Equals(type.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchText = search.Trim();
+            grouped = grouped.Where(x =>
+                x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (x.Country != null && x.Country.Contains(searchText, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        var ordered = grouped.OrderBy(x => x.Name).ToList();
+        var totalCount = ordered.Count;
+
+        var paged = ordered
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToList();
+
+        return new DestinationListResponse(paged, totalCount);
     }
 
     public async Task<DestinationDetailResponse> GetDestinationBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Fetching destination: {Slug}", slug);
+        _logger.LogInformation("Fetching destination detail: {Slug}", slug);
 
-        var cities = await _cityRepository.GetAllAsync(cancellationToken);
-        var city = cities.FirstOrDefault(c => 
-        {
-            var cityName = c.Name.GetValueOrDefault("tr") ?? c.Name.Values.FirstOrDefault() ?? "";
-            var citySlug = FormatSlug(cityName);
-            return citySlug.Equals(slug, StringComparison.OrdinalIgnoreCase);
-        });
+        var activeListings = (await _listingRepository.GetActiveListingsAsync(cancellationToken))
+            .Where(x => x.Type is ListingType.Beach or ListingType.Pool)
+            .ToList();
 
-        if (city == null)
+        var cityListings = activeListings
+            .Where(x => FormatSlug(x.City).Equals(slug, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (cityListings.Count == 0)
             throw new KeyNotFoundException("Destinasyon bulunamadı");
 
-        var cityName = city.Name.GetValueOrDefault("tr") ?? city.Name.Values.FirstOrDefault() ?? "";
-        var activeListings = await _listingRepository.GetActiveListingsAsync(cancellationToken);
-        var cityListings = activeListings.Where(l => 
-            l.City.Equals(cityName, StringComparison.OrdinalIgnoreCase) ||
-            l.City.Equals(city.Name.GetValueOrDefault("en") ?? "", StringComparison.OrdinalIgnoreCase)).ToList();
+        var city = cityListings.First().City;
+        var country = cityListings.First().Country;
 
         var spots = cityListings.Select(l => new SpotListItemDto(
             Id: l.Id,
             Slug: l.Slug,
-            Name: l.Title.GetValueOrDefault("tr") ?? "",
-            VenueType: l.Type switch
-            {
-                ListingType.Beach => VenueType.Beach,
-                ListingType.Pool => VenueType.Pool,
-                ListingType.Yacht => VenueType.Yacht,
-                ListingType.DayTrip => VenueType.DayTrip,
-                _ => VenueType.Beach
-            },
+            Name: GetLocalizedText(l.Title),
+            VenueType: l.Type == ListingType.Beach ? VenueType.Beach : VenueType.Pool,
             ImageUrl: l.Images.FirstOrDefault(i => i.IsCover)?.Url ?? l.Images.FirstOrDefault()?.Url,
             BasePricePerDay: l.BasePricePerDay,
             Currency: l.PriceCurrency,
@@ -99,26 +128,111 @@ public class DestinationService : IDestinationService
             ReviewCount: l.ReviewCount,
             MaxGuestCount: l.MaxGuestCount,
             IsFeatured: l.IsFeatured,
-            Amenities: null // Or fetch basic amenities
+            Amenities: l.Amenities
+                .Select(x => GetLocalizedText(x.Amenity?.Label))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Take(5)
+                .ToList()
         )).ToList();
 
         return new DestinationDetailResponse(
-            Id: city.Id,
+            Id: cityListings.First().Id,
             Slug: slug,
-            Name: cityName,
-            Description: "Harika plajlar ve eğlenceli mekanlar.", // Placeholder
-            Country: city.Country,
-            ImageUrl: null,
-            Latitude: null, // City entity might need lat/long or get from first listing? Sticking to null/optional
-            Longitude: null,
+            Name: city,
+            Description: $"{city} destinasyonundaki beach ve pool mekanlarını keşfedin.",
+            Country: country,
+            ImageUrl: cityListings
+                .OrderByDescending(x => x.IsFeatured)
+                .SelectMany(x => x.Images)
+                .OrderBy(x => x.DisplayOrder)
+                .FirstOrDefault(x => x.IsCover)?.Url
+                    ?? cityListings.SelectMany(x => x.Images).OrderBy(x => x.DisplayOrder).FirstOrDefault()?.Url,
+            Latitude: cityListings.Average(x => x.Latitude),
+            Longitude: cityListings.Average(x => x.Longitude),
             Spots: spots,
-            Tags: null,
-            AverageRating: cityListings.Any() ? cityListings.Average(l => l.Rating) : null,
-            ReviewCount: cityListings.Sum(l => l.ReviewCount)
+            Tags: cityListings
+                .SelectMany(x => x.Amenities)
+                .Select(x => GetLocalizedText(x.Amenity?.Label))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(10)
+                .ToList(),
+            AverageRating: cityListings.Any() ? cityListings.Average(x => x.Rating) : null,
+            ReviewCount: cityListings.Sum(x => x.ReviewCount)
         );
     }
 
-    private string FormatSlug(string text)
+    public async Task<DestinationPageDetailResponse> GetDestinationPageBySlugAsync(string slug, CancellationToken cancellationToken = default)
+    {
+        var basic = await GetDestinationBySlugAsync(slug, cancellationToken);
+
+        var type = DetermineDestinationTypeFromSpots(basic.Spots);
+
+        var features = new List<DestinationFeatureItemDto>
+        {
+            new("wb_sunny", "Perfect Weather", "Güneşli günler ve temiz hava ile keyifli bir deneyim."),
+            new("map", "Easy Access", "Şehir merkezine ve popüler noktalara hızlı ulaşım."),
+            new("local_activity", "Premium Spots", "Yüksek puanlı beach ve pool mekanları bir arada.")
+        };
+
+        var spots = basic.Spots.Select(x => new DestinationSpotItemDto(
+            Id: x.Id,
+            Slug: x.Slug,
+            Name: x.Name,
+            Location: basic.Name,
+            ImageUrl: x.ImageUrl,
+            Rating: x.Rating,
+            ReviewCount: x.ReviewCount,
+            Price: x.BasePricePerDay,
+            Currency: x.Currency,
+            PriceUnit: "day"
+        )).ToList();
+
+        return new DestinationPageDetailResponse(
+            Id: basic.Id,
+            Slug: basic.Slug,
+            Type: type,
+            Hero: new DestinationHeroDto(
+                Title: basic.Name,
+                Subtitle: $"{basic.Name} için seçkin {type.ToLowerInvariant()} deneyimleri",
+                Location: string.IsNullOrWhiteSpace(basic.Country) ? basic.Name : $"{basic.Name}, {basic.Country}",
+                ImageUrl: basic.ImageUrl,
+                SpotCount: spots.Count
+            ),
+            Overview: new DestinationOverviewDto(
+                Description: basic.Description,
+                AvgWaterTemp: null,
+                SunnyDaysPerYear: null,
+                MapImageUrl: null
+            ),
+            Features: features,
+            Spots: spots,
+            Cta: new DestinationCtaDto(
+                Title: "Aradığını bulamadın mı?",
+                Description: "Yakındaki diğer popüler destinasyonları da inceleyebilirsin.",
+                ButtonText: type.Equals("Beach", StringComparison.OrdinalIgnoreCase)
+                    ? "Yakındaki Beach'leri Keşfet"
+                    : "Yakındaki Pool'ları Keşfet",
+                BackgroundImageUrl: basic.ImageUrl
+            )
+        );
+    }
+
+    private static string DetermineDestinationType(IEnumerable<Domain.Entities.Listing> listings)
+    {
+        var beachCount = listings.Count(x => x.Type == ListingType.Beach);
+        var poolCount = listings.Count(x => x.Type == ListingType.Pool);
+        return beachCount >= poolCount ? "Beach" : "Pool";
+    }
+
+    private static string DetermineDestinationTypeFromSpots(IEnumerable<SpotListItemDto> spots)
+    {
+        var beachCount = spots.Count(x => x.VenueType == VenueType.Beach);
+        var poolCount = spots.Count(x => x.VenueType == VenueType.Pool);
+        return beachCount >= poolCount ? "Beach" : "Pool";
+    }
+
+    private static string FormatSlug(string text)
     {
         return text.ToLowerInvariant()
             .Replace(" ", "-")
@@ -128,5 +242,25 @@ public class DestinationService : IDestinationService
             .Replace("ş", "s")
             .Replace("ö", "o")
             .Replace("ç", "c");
+    }
+
+    private static string GetLocalizedText(Dictionary<string, string>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (values.TryGetValue("tr", out var tr) && !string.IsNullOrWhiteSpace(tr))
+        {
+            return tr;
+        }
+
+        if (values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en))
+        {
+            return en;
+        }
+
+        return values.Values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
     }
 }

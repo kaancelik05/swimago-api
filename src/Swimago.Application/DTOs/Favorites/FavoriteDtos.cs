@@ -21,10 +21,13 @@ public record FavoriteItemDto(
     string? VenueSlug,
     string? VenueImageUrl,
     string? VenueCity,
+    decimal? DistanceKm,
     decimal? VenuePrice,
     string? Currency,
+    string? PriceUnit,
     decimal? VenueRating,
     int? VenueReviewCount,
+    string? StatusBadge,
     DateTime AddedAt
 );
 

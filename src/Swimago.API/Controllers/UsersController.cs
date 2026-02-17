@@ -48,6 +48,18 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Get customer dashboard summary
+    /// </summary>
+    [HttpGet("me/dashboard")]
+    [ProducesResponseType(typeof(UserDashboardResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var response = await _userService.GetDashboardAsync(userId, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Update current user's profile
     /// </summary>
     [HttpPut("me")]
@@ -95,6 +107,16 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Update user avatar (POST alias for frontend compatibility)
+    /// </summary>
+    [HttpPost("me/avatar")]
+    [ProducesResponseType(typeof(UpdateAvatarResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> UpdateAvatarPost(IFormFile file, CancellationToken cancellationToken)
+        => UpdateAvatar(file, cancellationToken);
+
+    /// <summary>
     /// Update user settings
     /// </summary>
     [HttpPut("me/settings")]
@@ -130,6 +152,42 @@ public class UsersController : ControllerBase
         {
             await _userService.ChangePasswordAsync(userId, request, cancellationToken);
             return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Change password (POST alias for frontend compatibility)
+    /// </summary>
+    [HttpPost("me/password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> ChangePasswordPost([FromBody] ChangePasswordRequest request, CancellationToken cancellationToken)
+        => ChangePassword(request, cancellationToken);
+
+    /// <summary>
+    /// Change account email
+    /// </summary>
+    [HttpPost("me/change-email")]
+    [ProducesResponseType(typeof(ChangeEmailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailRequest request, CancellationToken cancellationToken)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        try
+        {
+            var response = await _userService.ChangeEmailAsync(userId, request, cancellationToken);
+            return Ok(response);
         }
         catch (ArgumentException ex)
         {

@@ -16,6 +16,8 @@ public class ListingRepository : Repository<Listing>, IListingRepository
     {
         return await _dbSet
             .Include(l => l.Images)
+            .Include(l => l.Amenities)
+                .ThenInclude(la => la.Amenity)
             .Where(l => l.IsActive && l.Status == ListingStatus.Active)
             .OrderByDescending(l => l.CreatedAt)
             .ToListAsync(cancellationToken);

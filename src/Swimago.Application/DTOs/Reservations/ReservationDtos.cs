@@ -233,3 +233,34 @@ public record SubmitReviewRequest(
     int Rating,
     string Comment
 );
+
+public record CustomerReservationListItemDto(
+    Guid Id,
+    string VenueName,
+    string? Location,
+    string? ImageUrl,
+    DateTime Date,
+    string Time,
+    string? Selection,
+    decimal Price,
+    string Status,
+    string Guests
+);
+
+public record CustomerReservationListResponse(
+    IEnumerable<CustomerReservationListItemDto> Items,
+    int Page,
+    int PageSize,
+    int TotalCount,
+    int TotalPages,
+    bool HasPrevious,
+    bool HasNext
+);
+
+public record ReservationPaymentIntentResponse(
+    Guid ReservationId,
+    Guid PaymentId,
+    decimal Amount,
+    string Currency,
+    string Status
+);

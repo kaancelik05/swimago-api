@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Swimago.Application.DTOs.Search;
 using Swimago.Application.Interfaces;
 
@@ -19,6 +20,37 @@ public class SearchController : ControllerBase
     {
         _searchService = searchService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Search listings for customer explore screens
+    /// </summary>
+    /// <param name="query">Customer search query parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated listing cards for customer app</returns>
+    [HttpGet("listings")]
+    [ProducesResponseType(typeof(Swimago.Application.DTOs.Common.PagedResult<CustomerSearchListingItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchCustomerListings([FromQuery] CustomerSearchListingsQuery query, CancellationToken cancellationToken)
+    {
+        if (query.Page <= 0)
+            return BadRequest(new { error = "page 1 veya daha büyük olmalıdır." });
+
+        if (query.PageSize <= 0 || query.PageSize > 100)
+            return BadRequest(new { error = "pageSize 1-100 aralığında olmalıdır." });
+
+        if (query.MinPrice.HasValue && query.MaxPrice.HasValue && query.MinPrice > query.MaxPrice)
+            return BadRequest(new { error = "Minimum fiyat, maksimum fiyattan büyük olamaz." });
+
+        Guid? userId = null;
+        if (User.Identity?.IsAuthenticated == true &&
+            Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId))
+        {
+            userId = parsedUserId;
+        }
+
+        var response = await _searchService.SearchCustomerListingsAsync(query, userId, cancellationToken);
+        return Ok(response);
     }
 
     /// <summary>

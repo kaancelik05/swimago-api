@@ -82,7 +82,8 @@ public record UpdateSettingsRequest(
     bool? PushNotifications,
     string? Language,
     string? Currency,
-    bool? ProfilePublic
+    bool? ProfilePublic,
+    bool? DataSharing
 );
 
 /// <summary>
@@ -100,4 +101,50 @@ public record ChangePasswordRequest(
 public record DeleteAccountRequest(
     string Password,
     string? Reason
+);
+
+public record UserDashboardResponse(
+    UserDashboardStatsDto Stats,
+    DashboardUpcomingReservationDto? UpcomingReservation,
+    IEnumerable<DashboardFavoriteSpotDto> FavoriteSpots
+);
+
+public record UserDashboardStatsDto(
+    int UpcomingTrips,
+    int TotalBookings,
+    int RewardPoints,
+    int WeeklyDelta
+);
+
+public record DashboardUpcomingReservationDto(
+    Guid Id,
+    string ResortName,
+    string Location,
+    string? ImageUrl,
+    DateTime Date,
+    string Time,
+    string Guests,
+    string Status,
+    bool IsFavorite
+);
+
+public record DashboardFavoriteSpotDto(
+    Guid Id,
+    string Title,
+    string Location,
+    string? ImageUrl,
+    decimal Rating,
+    string Price,
+    string PriceUnit,
+    bool IsFavorite
+);
+
+public record ChangeEmailRequest(
+    string NewEmail,
+    string Password
+);
+
+public record ChangeEmailResponse(
+    string Email,
+    string Message
 );

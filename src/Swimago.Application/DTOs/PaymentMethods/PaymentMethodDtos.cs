@@ -1,37 +1,40 @@
-using Swimago.Domain.Enums;
-
 namespace Swimago.Application.DTOs.PaymentMethods;
 
 /// <summary>
-/// Payment method response
+/// Payment method response used by customer app.
 /// </summary>
 public record PaymentMethodResponse(
     Guid Id,
-    PaymentBrand Brand,
-    string Last4,
-    int ExpiryMonth,
-    int ExpiryYear,
-    string? CardholderName,
-    bool IsDefault,
-    DateTime CreatedAt
+    string Brand,
+    string LastFour,
+    string ExpiryDate,
+    bool IsDefault
 );
 
 /// <summary>
-/// Add payment method request
+/// Add payment method request (tokenized).
 /// </summary>
-public record AddPaymentMethodRequest(
-    string CardNumber,
-    int ExpiryMonth,
-    int ExpiryYear,
-    string Cvv,
-    string CardholderName,
-    bool SetAsDefault = false
+public record CreatePaymentMethodRequest(
+    string Provider,
+    string PaymentMethodToken,
+    bool SetAsDefault = false,
+    string? Brand = null,
+    string? LastFour = null,
+    string? ExpiryDate = null
 );
 
 /// <summary>
-/// Payment method list response
+/// Patch payment method request.
+/// </summary>
+public record UpdatePaymentMethodRequest(
+    string? Brand,
+    string? LastFour,
+    string? ExpiryDate
+);
+
+/// <summary>
+/// Payment method list response.
 /// </summary>
 public record PaymentMethodListResponse(
-    IEnumerable<PaymentMethodResponse> PaymentMethods,
-    Guid? DefaultPaymentMethodId
+    IEnumerable<PaymentMethodResponse> Items
 );

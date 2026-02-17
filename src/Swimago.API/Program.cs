@@ -29,6 +29,7 @@ builder.Services.AddScoped<Swimago.Domain.Interfaces.IListingRepository, Swimago
 builder.Services.AddScoped<Swimago.Domain.Interfaces.IReservationRepository, Swimago.Infrastructure.Repositories.ReservationRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.IReviewRepository, Swimago.Infrastructure.Repositories.ReviewRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.IBlogPostRepository, Swimago.Infrastructure.Repositories.BlogPostRepository>();
+builder.Services.AddScoped<Swimago.Domain.Interfaces.IBlogCommentRepository, Swimago.Infrastructure.Repositories.BlogCommentRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.IFavoriteRepository, Swimago.Infrastructure.Repositories.FavoriteRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.IPaymentMethodRepository, Swimago.Infrastructure.Repositories.PaymentMethodRepository>();
 builder.Services.AddScoped<Swimago.Domain.Interfaces.INewsletterRepository, Swimago.Infrastructure.Repositories.NewsletterRepository>();

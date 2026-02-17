@@ -5,8 +5,10 @@ namespace Swimago.Domain.Enums;
 /// </summary>
 public enum ListingStatus
 {
-    Pending,    // Onay bekliyor
-    Active,     // Aktif
-    Inactive,   // Pasif
-    Rejected    // Reddedildi
+    Pending = 0,        // Onay bekliyor
+    Active = 1,         // Aktif
+    Inactive = 2,       // Pasif
+    Rejected = 3,       // Reddedildi
+    Draft = 4,          // Taslak
+    PendingReview = 5   // Inceleme bekliyor
 }

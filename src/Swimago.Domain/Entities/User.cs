@@ -30,6 +30,7 @@ public class User
     public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
     public ICollection<PaymentMethod> PaymentMethods { get; set; } = new List<PaymentMethod>();
+    public ICollection<BlogComment> BlogComments { get; set; } = new List<BlogComment>();
     public HostBusinessSettings? HostBusinessSettings { get; set; }
 }
 

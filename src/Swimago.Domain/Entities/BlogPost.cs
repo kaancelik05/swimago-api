@@ -24,4 +24,5 @@ public class BlogPost
     
     // Navigation property
     public User Author { get; set; } = null!;
+    public ICollection<BlogComment> Comments { get; set; } = new List<BlogComment>();
 }

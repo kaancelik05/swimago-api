@@ -86,6 +86,36 @@ namespace Swimago.Infrastructure.Migrations
                     b.ToTable("AvailabilityBlocks");
                 });
 
+            modelBuilder.Entity("Swimago.Domain.Entities.BlogComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BlogPostId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("BlogComments");
+                });
+
             modelBuilder.Entity("Swimago.Domain.Entities.BlogPost", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1008,6 +1038,25 @@ namespace Swimago.Infrastructure.Migrations
                     b.Navigation("Listing");
                 });
 
+            modelBuilder.Entity("Swimago.Domain.Entities.BlogComment", b =>
+                {
+                    b.HasOne("Swimago.Domain.Entities.BlogPost", "BlogPost")
+                        .WithMany("Comments")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Swimago.Domain.Entities.User", "User")
+                        .WithMany("BlogComments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Swimago.Domain.Entities.BlogPost", b =>
                 {
                     b.HasOne("Swimago.Domain.Entities.User", "Author")
@@ -1211,6 +1260,11 @@ namespace Swimago.Infrastructure.Migrations
                     b.Navigation("ListingAmenities");
                 });
 
+            modelBuilder.Entity("Swimago.Domain.Entities.BlogPost", b =>
+                {
+                    b.Navigation("Comments");
+                });
+
             modelBuilder.Entity("Swimago.Domain.Entities.Listing", b =>
                 {
                     b.Navigation("Amenities");
@@ -1239,6 +1293,8 @@ namespace Swimago.Infrastructure.Migrations
 
             modelBuilder.Entity("Swimago.Domain.Entities.User", b =>
                 {
+                    b.Navigation("BlogComments");
+
                     b.Navigation("Favorites");
 
                     b.Navigation("HostBusinessSettings");

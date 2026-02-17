@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Reservations;
 using Swimago.Application.Interfaces;
+using Swimago.Domain.Entities;
 using Swimago.Domain.Enums;
+using Swimago.Domain.Interfaces;
 using System.Security.Claims;
 
 namespace Swimago.API.Controllers;
@@ -18,13 +20,22 @@ namespace Swimago.API.Controllers;
 public class ReservationsController : ControllerBase
 {
     private readonly IReservationService _reservationService;
+    private readonly IReservationRepository _reservationRepository;
+    private readonly IReviewRepository _reviewRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ReservationsController> _logger;
 
     public ReservationsController(
         IReservationService reservationService,
+        IReservationRepository reservationRepository,
+        IReviewRepository reviewRepository,
+        IUnitOfWork unitOfWork,
         ILogger<ReservationsController> logger)
     {
         _reservationService = reservationService;
+        _reservationRepository = reservationRepository;
+        _reviewRepository = reviewRepository;
+        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
@@ -32,7 +43,7 @@ public class ReservationsController : ControllerBase
     /// Get all reservations for the authenticated user with optional filters
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(ReservationListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(CustomerReservationListResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery] ReservationStatus? status,
         [FromQuery] int page = 1,
@@ -40,62 +51,34 @@ public class ReservationsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
+        var safePage = Math.Max(1, page);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
+
         _logger.LogInformation("Fetching reservations for user {UserId}, status={Status}", userId, status);
-        
-        var allReservations = await _reservationService.GetUserReservationsAsync(userId, cancellationToken);
-        
-        var statusPending = ReservationStatus.Pending.ToString();
-        var statusConfirmed = ReservationStatus.Confirmed.ToString();
-        var statusCompleted = ReservationStatus.Completed.ToString();
-        var statusCancelled = ReservationStatus.Cancelled.ToString();
 
-        var statusCounts = new
-        {
-            total = allReservations.Count(),
-            pending = allReservations.Count(r => r.Status == statusPending),
-            confirmed = allReservations.Count(r => r.Status == statusConfirmed),
-            completed = allReservations.Count(r => r.Status == statusCompleted),
-            cancelled = allReservations.Count(r => r.Status == statusCancelled)
-        };
-
-        if (status.HasValue)
-        {
-            var filterStatus = status.Value.ToString();
-            allReservations = allReservations.Where(r => r.Status == filterStatus);
-        }
-
-        var total = allReservations.Count();
-        
-        var mappedItems = allReservations
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(r => new ReservationListItemDto(
-                r.Id,
-                r.ConfirmationNumber,
-                Enum.Parse<VenueType>(r.VenueType), 
-                r.ListingTitle, 
-                null, // VenueImageUrl - need to be added to ReservationResponse if needed
-                null, // VenueCity - need to be added
-                r.StartTime,
-                r.EndTime,
-                r.GuestCount,
-                r.TotalPrice,
-                r.Currency,
-                Enum.Parse<ReservationStatus>(r.Status),
-                r.CreatedAt
-            ))
+        var reservations = (await _reservationRepository.GetByGuestIdAndStatusAsync(userId, status, cancellationToken))
+            .OrderByDescending(x => x.StartTime)
             .ToList();
 
-        var counts = new ReservationCountsDto(
-            statusCounts.total,
-            statusCounts.pending,
-            statusCounts.confirmed,
-            statusCounts.completed,
-            statusCounts.cancelled
-        );
+        var totalCount = reservations.Count;
+        var items = reservations
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .Select(MapReservationListItem)
+            .ToList();
 
-        return Ok(new ReservationListResponse(mappedItems, counts, total));
+        var totalPages = (int)Math.Ceiling(totalCount / (double)safePageSize);
+
+        return Ok(new CustomerReservationListResponse(
+            Items: items,
+            Page: safePage,
+            PageSize: safePageSize,
+            TotalCount: totalCount,
+            TotalPages: totalPages,
+            HasPrevious: safePage > 1,
+            HasNext: safePage < totalPages
+        ));
     }
 
     /// <summary>
@@ -108,15 +91,15 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateReservationRequest request, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
         _logger.LogInformation("Creating reservation for user {UserId}, listing {ListingId}", userId, request.ListingId);
 
         try
         {
             var response = await _reservationService.CreateReservationAsync(userId, request, cancellationToken);
-            
+
             _logger.LogInformation("Reservation created successfully: {ReservationId}", response.Id);
-            
+
             return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
         }
         catch (InvalidOperationException ex)
@@ -141,12 +124,12 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var response = await _reservationService.GetReservationByIdAsync(id, cancellationToken);
-        
+
         if (response == null)
             return NotFound(new { error = "Rezervasyon bulunamadı" });
 
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
         if (response.GuestId != userId)
         {
             _logger.LogWarning("User {UserId} attempted to access reservation {ReservationId}", userId, id);
@@ -167,28 +150,66 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReservationRequest request, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
         _logger.LogInformation("Updating reservation {ReservationId} for user {UserId}", id, userId);
 
-        try
-        {
-            var existingReservation = await _reservationService.GetReservationByIdAsync(id, cancellationToken);
-            
-            if (existingReservation == null)
-                return NotFound(new { error = "Rezervasyon bulunamadı" });
+        var reservation = await _reservationRepository.GetWithDetailsAsync(id, cancellationToken);
+        if (reservation == null)
+            return NotFound(new { error = "Rezervasyon bulunamadı" });
 
-            if (existingReservation.GuestId != userId)
-                return Forbid();
+        if (reservation.GuestId != userId)
+            return Forbid();
 
-            // TODO: Implement update logic in service
-            // For now, return the existing reservation
-            return Ok(existingReservation);
-        }
-        catch (InvalidOperationException ex)
+        if (reservation.Status is ReservationStatus.Cancelled or ReservationStatus.Completed)
+            return BadRequest(new { error = "Bu rezervasyon güncellenemez" });
+
+        if (request.StartTime.HasValue || request.EndTime.HasValue)
         {
-            _logger.LogWarning("Reservation update failed: {Message}", ex.Message);
-            return BadRequest(new { error = ex.Message });
+            var start = request.StartTime ?? reservation.StartTime;
+            var end = request.EndTime ?? reservation.EndTime;
+
+            if (start >= end)
+                return BadRequest(new { error = "Başlangıç tarihi bitiş tarihinden önce olmalıdır" });
+
+            var hasOverlap = await _reservationRepository.HasOverlappingReservationsAsync(
+                reservation.ListingId,
+                start,
+                end,
+                reservation.Id,
+                cancellationToken);
+
+            if (hasOverlap)
+                return BadRequest(new { error = "Seçilen tarih aralığı dolu" });
+
+            reservation.StartTime = start;
+            reservation.EndTime = end;
         }
+
+        if (request.Guests != null)
+        {
+            var totalGuests = Math.Max(1, request.Guests.Adults + request.Guests.Children + (request.Guests.Infants ?? 0));
+            reservation.GuestCount = totalGuests;
+            reservation.Guests = new GuestDetails
+            {
+                Adults = request.Guests.Adults,
+                Children = request.Guests.Children,
+                Seniors = 0
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SpecialRequests))
+        {
+            reservation.SpecialRequests = new Dictionary<string, string>
+            {
+                ["tr"] = request.SpecialRequests
+            };
+        }
+
+        await _reservationRepository.UpdateAsync(reservation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var updated = await _reservationService.GetReservationByIdAsync(id, cancellationToken);
+        return Ok(updated);
     }
 
     /// <summary>
@@ -202,15 +223,15 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
         _logger.LogInformation("User {UserId} attempting to cancel reservation {ReservationId}", userId, id);
 
         try
         {
             await _reservationService.CancelReservationAsync(id, userId, cancellationToken);
-            
+
             _logger.LogInformation("Reservation {ReservationId} cancelled successfully", id);
-            
+
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -240,33 +261,27 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> CheckIn(Guid id, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
         _logger.LogInformation("User {UserId} checking in to reservation {ReservationId}", userId, id);
 
-        try
-        {
-            var reservation = await _reservationService.GetReservationByIdAsync(id, cancellationToken);
-            
-            if (reservation == null)
-                return NotFound(new { error = "Rezervasyon bulunamadı" });
+        var reservation = await _reservationRepository.GetByIdAsync(id, cancellationToken);
 
-            if (reservation.GuestId != userId)
-                return Forbid();
+        if (reservation == null)
+            return NotFound(new { error = "Rezervasyon bulunamadı" });
 
-            // Use string comparison for status
-            if (reservation.Status != ReservationStatus.Confirmed.ToString())
-                return BadRequest(new { error = "Bu rezervasyon için check-in yapılamaz" });
+        if (reservation.GuestId != userId)
+            return Forbid();
 
-            // TODO: Implement check-in logic in service
-            _logger.LogInformation("Check-in successful for reservation {ReservationId}", id);
-            
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning("Check-in failed: {Message}", ex.Message);
-            return BadRequest(new { error = ex.Message });
-        }
+        if (reservation.Status != ReservationStatus.Confirmed)
+            return BadRequest(new { error = "Bu rezervasyon için check-in yapılamaz" });
+
+        reservation.CheckedInAt = DateTime.UtcNow;
+        reservation.Status = ReservationStatus.Completed;
+
+        await _reservationRepository.UpdateAsync(reservation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     /// <summary>
@@ -280,36 +295,86 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> SubmitReview(Guid id, [FromBody] SubmitReviewRequest request, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
+
         _logger.LogInformation("User {UserId} submitting review for reservation {ReservationId}", userId, id);
 
-        try
+        var reservation = await _reservationRepository.GetWithDetailsAsync(id, cancellationToken);
+
+        if (reservation == null)
+            return NotFound(new { error = "Rezervasyon bulunamadı" });
+
+        if (reservation.GuestId != userId)
+            return Forbid();
+
+        if (reservation.Status != ReservationStatus.Completed)
+            return BadRequest(new { error = "Sadece tamamlanmış rezervasyonlar için değerlendirme yapılabilir" });
+
+        if (request.Rating < 1 || request.Rating > 5)
+            return BadRequest(new { error = "Puan 1-5 arasında olmalıdır" });
+
+        if (reservation.Review != null)
+            return BadRequest(new { error = "Bu rezervasyon için zaten değerlendirme yapılmış" });
+
+        var review = new Review
         {
-            var reservation = await _reservationService.GetReservationByIdAsync(id, cancellationToken);
-            
-            if (reservation == null)
-                return NotFound(new { error = "Rezervasyon bulunamadı" });
+            Id = Guid.NewGuid(),
+            ReservationId = reservation.Id,
+            ListingId = reservation.ListingId,
+            GuestId = reservation.GuestId,
+            Rating = request.Rating,
+            Text = request.Comment,
+            CreatedAt = DateTime.UtcNow,
+            IsVerified = true
+        };
 
-            if (reservation.GuestId != userId)
-                return Forbid();
+        await _reviewRepository.AddAsync(review, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            // Use string comparison for status
-            if (reservation.Status != ReservationStatus.Completed.ToString())
-                return BadRequest(new { error = "Sadece tamamlanmış rezervasyonlar için değerlendirme yapılabilir" });
-
-            if (request.Rating < 1 || request.Rating > 5)
-                return BadRequest(new { error = "Puan 1-5 arasında olmalıdır" });
-
-            // TODO: Create review via service
-            _logger.LogInformation("Review submitted for reservation {ReservationId}, rating: {Rating}", id, request.Rating);
-            
-            return Created($"/api/reviews/{Guid.NewGuid()}", new { message = "Değerlendirmeniz başarıyla gönderildi" });
-        }
-        catch (InvalidOperationException ex)
+        return Created($"/api/reviews/{review.Id}", new
         {
-            _logger.LogWarning("Review submission failed: {Message}", ex.Message);
-            return BadRequest(new { error = ex.Message });
-        }
+            id = review.Id,
+            message = "Değerlendirmeniz başarıyla gönderildi"
+        });
+    }
+
+    /// <summary>
+    /// Create payment intent for reservation
+    /// </summary>
+    [HttpPost("{id}/payment-intent")]
+    [ProducesResponseType(typeof(ReservationPaymentIntentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreatePaymentIntent(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var reservation = await _reservationRepository.GetWithDetailsAsync(id, cancellationToken);
+        if (reservation == null)
+            return NotFound(new { error = "Rezervasyon bulunamadı" });
+
+        if (reservation.GuestId != userId)
+            return Forbid();
+
+        reservation.Payment ??= new ReservationPayment
+        {
+            Id = Guid.NewGuid(),
+            ReservationId = reservation.Id,
+            Amount = reservation.FinalPrice,
+            Currency = reservation.Currency,
+            Status = PaymentStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _reservationRepository.UpdateAsync(reservation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Ok(new ReservationPaymentIntentResponse(
+            ReservationId: reservation.Id,
+            PaymentId: reservation.Payment.Id,
+            Amount: reservation.Payment.Amount,
+            Currency: reservation.Payment.Currency,
+            Status: reservation.Payment.Status.ToString().ToLowerInvariant()
+        ));
     }
 
     /// <summary>
@@ -320,9 +385,9 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CheckAvailability(
-        [FromQuery] Guid listingId, 
-        [FromQuery] DateTime startTime, 
-        [FromQuery] DateTime endTime, 
+        [FromQuery] Guid listingId,
+        [FromQuery] DateTime startTime,
+        [FromQuery] DateTime endTime,
         CancellationToken cancellationToken)
     {
         if (startTime >= endTime)
@@ -332,7 +397,61 @@ public class ReservationsController : ControllerBase
             return BadRequest(new { error = "Geçmiş tarih için müsaitlik sorgulanamaz" });
 
         var isAvailable = await _reservationService.CheckAvailabilityAsync(listingId, startTime, endTime, cancellationToken);
-        
+
         return Ok(new { listingId, startTime, endTime, isAvailable });
+    }
+
+    private static CustomerReservationListItemDto MapReservationListItem(Reservation reservation)
+    {
+        var listing = reservation.Listing;
+        var venueName = listing == null
+            ? reservation.ConfirmationNumber ?? "Reservation"
+            : GetLocalizedText(listing.Title);
+
+        var location = listing == null
+            ? null
+            : (string.IsNullOrWhiteSpace(listing.Country)
+                ? listing.City
+                : $"{listing.City}, {listing.Country}");
+
+        var imageUrl = listing?.Images.FirstOrDefault(i => i.IsCover)?.Url
+            ?? listing?.Images.FirstOrDefault()?.Url;
+
+        var selection = reservation.Selections == null
+            ? null
+            : $"{reservation.Selections.Sunbeds} Sunbeds, {reservation.Selections.Cabanas} Cabana";
+
+        return new CustomerReservationListItemDto(
+            Id: reservation.Id,
+            VenueName: venueName,
+            Location: location,
+            ImageUrl: imageUrl,
+            Date: reservation.StartTime.Date,
+            Time: $"{reservation.StartTime:HH:mm} - {reservation.EndTime:HH:mm}",
+            Selection: selection,
+            Price: reservation.TotalPrice,
+            Status: reservation.Status.ToString().ToLowerInvariant(),
+            Guests: $"{reservation.GuestCount} Adults"
+        );
+    }
+
+    private static string GetLocalizedText(Dictionary<string, string>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (values.TryGetValue("tr", out var tr) && !string.IsNullOrWhiteSpace(tr))
+        {
+            return tr;
+        }
+
+        if (values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en))
+        {
+            return en;
+        }
+
+        return values.Values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
     }
 }

@@ -54,6 +54,94 @@ public class BlogController : ControllerBase
     }
 
     /// <summary>
+    /// Get detailed blog payload for customer app
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{slug}/detail")]
+    [ProducesResponseType(typeof(CustomerBlogDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDetailBySlug(string slug, CancellationToken cancellationToken)
+    {
+        var post = await _blogService.GetBlogDetailBySlugAsync(slug, cancellationToken);
+        if (post == null) return NotFound();
+        return Ok(post);
+    }
+
+    /// <summary>
+    /// Get related posts for a blog detail page
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{slug}/related")]
+    [ProducesResponseType(typeof(BlogRelatedResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRelated(string slug, [FromQuery] int limit = 3, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _blogService.GetRelatedPostsBySlugAsync(slug, limit, cancellationToken);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    /// <summary>
+    /// Get blog comments by slug
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{slug}/comments")]
+    [ProducesResponseType(typeof(BlogCommentListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetComments(
+        string slug,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _blogService.GetCommentsBySlugAsync(slug, page, pageSize, cancellationToken);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    /// <summary>
+    /// Add comment to a blog post by slug
+    /// </summary>
+    [Authorize]
+    [HttpPost("{slug}/comments")]
+    [ProducesResponseType(typeof(BlogCommentDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddComment(
+        string slug,
+        [FromBody] CreateBlogCommentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        try
+        {
+            var created = await _blogService.AddCommentBySlugAsync(userId, slug, request, cancellationToken);
+            return CreatedAtAction(nameof(GetComments), new { slug, page = 1, pageSize = 20 }, created);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    /// <summary>
     /// Create a new blog post (Admin only)
     /// </summary>
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]

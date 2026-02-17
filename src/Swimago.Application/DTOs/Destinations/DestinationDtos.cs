@@ -21,6 +21,7 @@ public record DestinationItemDto(
     string? Country,
     string? ImageUrl,
     int SpotCount,
+    string Type,
     decimal? MinPrice,
     decimal? MaxPrice,
     decimal? AverageRating,
@@ -43,6 +44,61 @@ public record DestinationDetailResponse(
     IEnumerable<string>? Tags,
     decimal? AverageRating,
     int ReviewCount
+);
+
+/// <summary>
+/// Customer destination detail page response
+/// </summary>
+public record DestinationPageDetailResponse(
+    Guid Id,
+    string Slug,
+    string Type,
+    DestinationHeroDto Hero,
+    DestinationOverviewDto Overview,
+    IEnumerable<DestinationFeatureItemDto> Features,
+    IEnumerable<DestinationSpotItemDto> Spots,
+    DestinationCtaDto Cta
+);
+
+public record DestinationHeroDto(
+    string Title,
+    string? Subtitle,
+    string Location,
+    string? ImageUrl,
+    int SpotCount
+);
+
+public record DestinationOverviewDto(
+    string? Description,
+    string? AvgWaterTemp,
+    int? SunnyDaysPerYear,
+    string? MapImageUrl
+);
+
+public record DestinationFeatureItemDto(
+    string Icon,
+    string Title,
+    string Description
+);
+
+public record DestinationSpotItemDto(
+    Guid Id,
+    string Slug,
+    string Name,
+    string? Location,
+    string? ImageUrl,
+    decimal Rating,
+    int ReviewCount,
+    decimal Price,
+    string Currency,
+    string PriceUnit
+);
+
+public record DestinationCtaDto(
+    string Title,
+    string Description,
+    string ButtonText,
+    string? BackgroundImageUrl
 );
 
 /// <summary>

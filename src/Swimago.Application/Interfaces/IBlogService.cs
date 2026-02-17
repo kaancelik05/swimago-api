@@ -13,4 +13,8 @@ public interface IBlogService
     Task<PagedResult<BlogPostResponse>> GetPublishedPostsAsync(PaginationQuery query, CancellationToken cancellationToken = default);
     Task<IEnumerable<BlogPostResponse>> GetAuthorPostsAsync(Guid authorId, CancellationToken cancellationToken = default);
     Task<bool> PublishPostAsync(Guid id, Guid authorId, CancellationToken cancellationToken = default);
+    Task<CustomerBlogDetailResponse?> GetBlogDetailBySlugAsync(string slug, CancellationToken cancellationToken = default);
+    Task<BlogRelatedResponse> GetRelatedPostsBySlugAsync(string slug, int limit = 3, CancellationToken cancellationToken = default);
+    Task<BlogCommentListResponse> GetCommentsBySlugAsync(string slug, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
+    Task<BlogCommentDto> AddCommentBySlugAsync(Guid userId, string slug, CreateBlogCommentRequest request, CancellationToken cancellationToken = default);
 }

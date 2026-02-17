@@ -11,52 +11,96 @@ public class FavoriteService : IFavoriteService
 {
     private readonly IFavoriteRepository _favoriteRepository;
     private readonly IListingRepository _listingRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<FavoriteService> _logger;
 
     public FavoriteService(
         IFavoriteRepository favoriteRepository,
         IListingRepository listingRepository,
+        IUnitOfWork unitOfWork,
         ILogger<FavoriteService> logger)
     {
         _favoriteRepository = favoriteRepository;
         _listingRepository = listingRepository;
+        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
-    public async Task<FavoriteListResponse> GetFavoritesAsync(Guid userId, VenueType? type, CancellationToken cancellationToken = default)
+    public async Task<FavoriteListResponse> GetFavoritesAsync(
+        Guid userId,
+        VenueType? type,
+        string? search = null,
+        string? sortBy = null,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Fetching favorites for user {UserId}", userId);
 
-        var favorites = await _favoriteRepository.GetByUserIdAsync(userId, cancellationToken);
+        var favorites = (await _favoriteRepository.GetByUserIdAsync(userId, cancellationToken)).ToList();
 
         if (type.HasValue)
         {
-            favorites = favorites.Where(f => f.VenueType == type.Value);
+            favorites = favorites.Where(f => f.VenueType == type.Value).ToList();
         }
 
-        var favoriteItems = new List<FavoriteItemDto>();
+        var favoriteItems = new List<FavoriteItemDto>(favorites.Count);
 
         foreach (var favorite in favorites)
         {
-            var listing = await _listingRepository.GetByIdAsync(favorite.VenueId, cancellationToken);
-            
+            var listing = favorite.Listing ?? await _listingRepository.GetByIdAsync(favorite.VenueId, cancellationToken);
+
+            if (listing == null)
+            {
+                continue;
+            }
+
             favoriteItems.Add(new FavoriteItemDto(
                 Id: favorite.Id,
                 VenueId: favorite.VenueId,
                 VenueType: favorite.VenueType,
-                VenueName: listing?.Title.GetValueOrDefault("tr") ?? "Bilinmeyen mekan",
-                VenueSlug: listing?.Slug,
-                VenueImageUrl: listing?.Images.FirstOrDefault(i => i.IsCover)?.Url ?? listing?.Images.FirstOrDefault()?.Url,
-                VenueCity: listing?.City,
-                VenuePrice: listing?.BasePricePerDay,
-                Currency: listing?.PriceCurrency ?? "TRY",
-                VenueRating: listing?.Rating,
-                VenueReviewCount: listing?.ReviewCount,
+                VenueName: GetLocalizedText(listing.Title),
+                VenueSlug: listing.Slug,
+                VenueImageUrl: listing.Images.FirstOrDefault(i => i.IsCover)?.Url ?? listing.Images.FirstOrDefault()?.Url,
+                VenueCity: listing.City,
+                DistanceKm: null,
+                VenuePrice: listing.BasePricePerDay,
+                Currency: listing.PriceCurrency,
+                PriceUnit: "person",
+                VenueRating: listing.Rating,
+                VenueReviewCount: listing.ReviewCount,
+                StatusBadge: listing.IsActive ? "Open Today" : "Closed",
                 AddedAt: favorite.CreatedAt
             ));
         }
 
-        return new FavoriteListResponse(favoriteItems, favoriteItems.Count);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchValue = search.Trim();
+            favoriteItems = favoriteItems
+                .Where(x => x.VenueName.Contains(searchValue, StringComparison.OrdinalIgnoreCase)
+                            || (x.VenueCity?.Contains(searchValue, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
+        }
+
+        var sorted = (sortBy ?? "").Trim().ToLowerInvariant() switch
+        {
+            "price" => favoriteItems.OrderBy(x => x.VenuePrice).ThenByDescending(x => x.AddedAt),
+            "distance" => favoriteItems.OrderBy(x => x.DistanceKm ?? decimal.MaxValue).ThenByDescending(x => x.AddedAt),
+            _ => favoriteItems.OrderByDescending(x => x.VenueRating ?? 0).ThenByDescending(x => x.AddedAt)
+        };
+
+        var safePage = Math.Max(1, page);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
+        var orderedList = sorted.ToList();
+        var totalCount = orderedList.Count;
+
+        var pagedItems = orderedList
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToList();
+
+        return new FavoriteListResponse(pagedItems, totalCount);
     }
 
     public async Task<FavoriteItemDto> AddFavoriteAsync(Guid userId, AddFavoriteRequest request, CancellationToken cancellationToken = default)
@@ -81,19 +125,23 @@ public class FavoriteService : IFavoriteService
         };
 
         await _favoriteRepository.AddAsync(favorite, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new FavoriteItemDto(
             Id: favorite.Id,
             VenueId: favorite.VenueId,
             VenueType: favorite.VenueType,
-            VenueName: listing.Title.GetValueOrDefault("tr") ?? "",
+            VenueName: GetLocalizedText(listing.Title),
             VenueSlug: listing.Slug,
             VenueImageUrl: listing.Images.FirstOrDefault(i => i.IsCover)?.Url ?? listing.Images.FirstOrDefault()?.Url,
             VenueCity: listing.City,
+            DistanceKm: null,
             VenuePrice: listing.BasePricePerDay,
             Currency: listing.PriceCurrency,
+            PriceUnit: "person",
             VenueRating: listing.Rating,
             VenueReviewCount: listing.ReviewCount,
+            StatusBadge: listing.IsActive ? "Open Today" : "Closed",
             AddedAt: favorite.CreatedAt
         );
     }
@@ -107,5 +155,26 @@ public class FavoriteService : IFavoriteService
             throw new KeyNotFoundException("Favori bulunamadı");
 
         await _favoriteRepository.DeleteAsync(favorite, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string GetLocalizedText(Dictionary<string, string>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (values.TryGetValue("tr", out var tr) && !string.IsNullOrWhiteSpace(tr))
+        {
+            return tr;
+        }
+
+        if (values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en))
+        {
+            return en;
+        }
+
+        return values.Values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
     }
 }

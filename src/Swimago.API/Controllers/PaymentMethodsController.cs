@@ -42,7 +42,7 @@ public class PaymentMethodsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(PaymentMethodResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Add([FromBody] AddPaymentMethodRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Add([FromBody] CreatePaymentMethodRequest request, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         
@@ -54,6 +54,32 @@ public class PaymentMethodsController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Update a payment method
+    /// </summary>
+    [HttpPatch("{id}")]
+    [ProducesResponseType(typeof(PaymentMethodResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePaymentMethodRequest request, CancellationToken cancellationToken)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        try
+        {
+            var result = await _paymentMethodService.UpdatePaymentMethodAsync(userId, id, request, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
         }
     }
 
@@ -82,7 +108,7 @@ public class PaymentMethodsController : ControllerBase
     /// <summary>
     /// Set payment method as default
     /// </summary>
-    [HttpPut("{id}/default")]
+    [HttpPatch("{id}/default")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetDefault(Guid id, CancellationToken cancellationToken)
@@ -99,4 +125,13 @@ public class PaymentMethodsController : ControllerBase
             return NotFound(new { error = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Set payment method as default (PUT alias)
+    /// </summary>
+    [HttpPut("{id}/default")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<IActionResult> SetDefaultPut(Guid id, CancellationToken cancellationToken)
+        => SetDefault(id, cancellationToken);
 }

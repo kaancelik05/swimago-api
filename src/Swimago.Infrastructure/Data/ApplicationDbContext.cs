@@ -26,6 +26,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ReservationPayment> ReservationPayments { get; set; }
     public DbSet<Review> Reviews { get; set; }
     public DbSet<BlogPost> BlogPosts { get; set; }
+    public DbSet<BlogComment> BlogComments { get; set; }
     public DbSet<Favorite> Favorites { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<PaymentMethod> PaymentMethods { get; set; }
@@ -168,6 +169,23 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<BlogPost>()
             .HasIndex(b => b.IsFeatured);
+
+        // Blog comments
+        modelBuilder.Entity<BlogComment>()
+            .HasOne(x => x.BlogPost)
+            .WithMany(x => x.Comments)
+            .HasForeignKey(x => x.BlogPostId);
+
+        modelBuilder.Entity<BlogComment>()
+            .HasOne(x => x.User)
+            .WithMany(x => x.BlogComments)
+            .HasForeignKey(x => x.UserId);
+
+        modelBuilder.Entity<BlogComment>()
+            .HasIndex(x => x.BlogPostId);
+
+        modelBuilder.Entity<BlogComment>()
+            .HasIndex(x => x.CreatedAt);
 
         // NewsletterSubscriber - Email unique index
         modelBuilder.Entity<NewsletterSubscriber>()

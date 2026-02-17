@@ -14,5 +14,7 @@ public record NewsletterSubscribeRequest(
 /// </summary>
 public record NewsletterSubscribeResponse(
     bool Success,
-    string? Message
+    string? Message,
+    string? Email,
+    bool IsSubscribed
 );
