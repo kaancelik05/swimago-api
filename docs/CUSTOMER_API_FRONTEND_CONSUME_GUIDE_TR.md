@@ -113,7 +113,35 @@ Validation/istek dogrulama icin tipik kodlar: `400`, `401`, `403`, `404`.
 ["Kas, Antalya", "Kaputas Beach"]
 ```
 
-## 2.3 GET `/api/explore` (Map Markers)
+## 2.3 GET `/api/search/amenities` (Filter Chips)
+
+### Query
+
+- `viewType`: `Beach | Pool` (opsiyonel)
+
+### Response
+
+```json
+{
+  "items": [
+    {
+      "id": "guid",
+      "name": "WiFi",
+      "icon": "wifi",
+      "category": "comfort"
+    }
+  ],
+  "totalCount": 5
+}
+```
+
+### Notlar
+
+- Frontend filtre değerini `id` (GUID) olarak kullanmalidir.
+- `GET /api/search/listings` cagirirken `amenities` query'sine CSV GUID verilebilir:
+  - `amenities=<id1>,<id2>`
+
+## 2.4 GET `/api/explore` (Map Markers)
 
 ### Query
 
@@ -841,4 +869,3 @@ Frontend uyumlulugu icin hem `PUT` hem `POST` desteklenir:
    - `GET /api/blog/{slug}/related`
    - `GET /api/blog/{slug}/comments`
    - authenticated ise `POST /api/blog/{slug}/comments`
-

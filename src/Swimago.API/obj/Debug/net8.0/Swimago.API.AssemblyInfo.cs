@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Swimago.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5518e6504edb9071b679ca048e9ef0c6abcf8c2c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7e69c67f453c57013c7193b69d6839163aafb04f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Swimago.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Swimago.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

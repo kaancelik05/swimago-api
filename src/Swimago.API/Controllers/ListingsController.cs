@@ -1,6 +1,6 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swimago.API.Authorization;
 using Swimago.Application.DTOs.Common;
 using Swimago.Application.DTOs.Listings;
 using Swimago.Domain.Entities;
@@ -21,20 +21,17 @@ public class ListingsController : ControllerBase
     private readonly IListingRepository _listingRepository;
     private readonly IAmenityRepository _amenityRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
     private readonly ILogger<ListingsController> _logger;
 
     public ListingsController(
         IListingRepository listingRepository,
         IAmenityRepository amenityRepository,
         IUnitOfWork unitOfWork,
-        IMapper mapper,
         ILogger<ListingsController> logger)
     {
         _listingRepository = listingRepository;
         _amenityRepository = amenityRepository;
         _unitOfWork = unitOfWork;
-        _mapper = mapper;
         _logger = logger;
     }
 
@@ -56,7 +53,7 @@ public class ListingsController : ControllerBase
             .Take(query.PageSize)
             .ToList();
 
-        var response = _mapper.Map<IEnumerable<ListingResponse>>(pagedListings);
+        var response = pagedListings.Select(ToListingResponse).ToList();
 
         return Ok(new PagedResult<ListingResponse>
         {
@@ -85,7 +82,7 @@ public class ListingsController : ControllerBase
             return NotFound(new { error = "Listing not found" });
         }
 
-        var response = _mapper.Map<ListingResponse>(listing);
+        var response = ToListingResponse(listing);
         return Ok(response);
     }
 
@@ -99,7 +96,7 @@ public class ListingsController : ControllerBase
         _logger.LogInformation("Fetching listings by type: {Type}", type);
 
         var listings = await _listingRepository.GetByTypeAsync(type, cancellationToken);
-        var response = _mapper.Map<IEnumerable<ListingResponse>>(listings);
+        var response = listings.Select(ToListingResponse).ToList();
         return Ok(response);
     }
 
@@ -135,7 +132,7 @@ public class ListingsController : ControllerBase
             type,
             cancellationToken);
 
-        var responseData = _mapper.Map<IEnumerable<ListingResponse>>(listings);
+        var responseData = listings.Select(ToListingResponse).ToList();
 
         return Ok(new
         {
@@ -150,7 +147,7 @@ public class ListingsController : ControllerBase
     /// <summary>
     /// Create a new listing draft
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.HostOrAdmin)]
     [HttpPost]
     [ProducesResponseType(typeof(CustomerCreateListingResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -233,7 +230,7 @@ public class ListingsController : ControllerBase
     /// <summary>
     /// Upload photos for a listing
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.HostOrAdmin)]
     [HttpPost("photos/upload")]
     [ProducesResponseType(typeof(ListingPhotosUploadResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -285,7 +282,7 @@ public class ListingsController : ControllerBase
     /// <summary>
     /// Publish listing for review
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.HostOrAdmin)]
     [HttpPost("{id}/publish")]
     [ProducesResponseType(typeof(PublishListingResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -337,6 +334,53 @@ public class ListingsController : ControllerBase
             Id: listing.Id,
             Status: listing.Status.ToString(),
             Message: "Listing submitted for review"));
+    }
+
+    private static ListingResponse ToListingResponse(Listing listing)
+    {
+        var images = (listing.Images ?? Array.Empty<ListingImage>())
+            .OrderBy(x => x.DisplayOrder)
+            .Select(x => new ListingImageDto(
+                Id: x.Id,
+                Url: x.Url,
+                IsCover: x.IsCover,
+                DisplayOrder: x.DisplayOrder,
+                AltText: x.Alt))
+            .ToList();
+
+        var amenities = (listing.Amenities ?? Array.Empty<ListingAmenity>())
+            .Where(x => x.IsEnabled && x.Amenity != null)
+            .Select(x => new AmenityDto(
+                Id: x.Amenity!.Id,
+                Icon: x.Amenity.Icon,
+                Name: MultiLanguageDto.FromDictionary(x.Amenity.Label),
+                IsActive: x.Amenity.IsActive))
+            .ToList();
+
+        return new ListingResponse(
+            Id: listing.Id,
+            HostId: listing.HostId,
+            Slug: listing.Slug,
+            Type: listing.Type,
+            Status: listing.Status.ToString(),
+            IsActive: listing.IsActive,
+            IsFeatured: listing.IsFeatured,
+            Title: MultiLanguageDto.FromDictionary(listing.Title),
+            Description: MultiLanguageDto.FromDictionary(listing.Description),
+            Address: MultiLanguageDto.FromDictionary(listing.Address),
+            City: listing.City,
+            Country: listing.Country,
+            Latitude: listing.Latitude,
+            Longitude: listing.Longitude,
+            MaxGuestCount: listing.MaxGuestCount,
+            BasePricePerDay: listing.BasePricePerDay,
+            PriceRangeMin: listing.PriceRangeMin,
+            PriceRangeMax: listing.PriceRangeMax,
+            Currency: string.IsNullOrWhiteSpace(listing.PriceCurrency) ? "USD" : listing.PriceCurrency,
+            Rating: listing.Rating,
+            ReviewCount: listing.ReviewCount,
+            Images: images,
+            Amenities: amenities.Count > 0 ? amenities : null);
     }
 
     private static string NormalizeToken(string value)

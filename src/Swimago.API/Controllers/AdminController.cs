@@ -126,10 +126,23 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpPost("host-applications/{userId}/reject")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RejectHostApplication(Guid userId, [FromBody] RejectHostRequest request, CancellationToken cancellationToken)
     {
-        await _adminService.RejectHostApplicationAsync(userId, request, cancellationToken);
-        return NoContent();
+        try
+        {
+            await _adminService.RejectHostApplicationAsync(userId, request, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = "Kullanıcı bulunamadı" });
+        }
     }
 
     /// <summary>

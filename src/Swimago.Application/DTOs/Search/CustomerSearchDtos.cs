@@ -42,3 +42,15 @@ public record CustomerSearchListingItemDto(
     decimal Latitude,
     decimal Longitude
 );
+
+public record CustomerAmenityItemDto(
+    Guid Id,
+    string Name,
+    string? Icon,
+    string? Category
+);
+
+public record CustomerAmenityListResponse(
+    IEnumerable<CustomerAmenityItemDto> Items,
+    int TotalCount
+);

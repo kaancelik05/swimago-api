@@ -18,13 +18,15 @@ public static class MockDataSeeder
 
     public static async Task SeedAsync(ApplicationDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+
         if (await context.Listings.AnyAsync(x => x.Slug == SeedMarkerSlug, cancellationToken))
         {
-            logger.LogInformation("Mock data already exists. Seed skipped.");
+            await EnsureDetailPageDummyDataAsync(context, logger, now, cancellationToken);
+            logger.LogInformation("Mock data already exists. Base seed skipped.");
             return;
         }
 
-        var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
         var passwordHash = BCrypt.Net.BCrypt.HashPassword("Test1234!");
 
@@ -1250,6 +1252,7 @@ public static class MockDataSeeder
 
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await EnsureDetailPageDummyDataAsync(context, logger, now, cancellationToken);
 
             logger.LogInformation(
                 "Mock seed completed successfully. Users: {UserCount}, Listings: {ListingCount}, Reservations: {ReservationCount}, Blogs: {BlogCount}",
@@ -1263,6 +1266,413 @@ public static class MockDataSeeder
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private static async Task EnsureDetailPageDummyDataAsync(
+        ApplicationDbContext context,
+        ILogger logger,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var createdRecords = new List<string>();
+
+        var hostOneId = await context.Users
+            .Where(x => x.Email == HostOneEmail)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var hostTwoId = await context.Users
+            .Where(x => x.Email == HostTwoEmail)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var fallbackHostId = await context.Users
+            .Where(x => x.Role == Role.Host)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        hostOneId = hostOneId == Guid.Empty ? fallbackHostId : hostOneId;
+        hostTwoId = hostTwoId == Guid.Empty ? fallbackHostId : hostTwoId;
+
+        var adminId = await context.Users
+            .Where(x => x.Email == AdminEmail)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (adminId == Guid.Empty)
+        {
+            adminId = await context.Users
+                .Where(x => x.Role == Role.Admin)
+                .Select(x => x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        if (hostOneId == Guid.Empty || hostTwoId == Guid.Empty || adminId == Guid.Empty)
+        {
+            logger.LogWarning("Detail-page dummy seed skipped. Missing host/admin users.");
+            return;
+        }
+
+        var amenityByIcon = await context.Amenities
+            .Where(x => x.Icon == "wifi" || x.Icon == "parking" || x.Icon == "shower" || x.Icon == "captain" || x.Icon == "lifejacket" || x.Icon == "restaurant")
+            .ToDictionaryAsync(x => x.Icon, x => x.Id, cancellationToken);
+
+        const string beachSlug = "antalya-lara-coral-beach";
+        if (!await context.Listings.AnyAsync(x => x.Slug == beachSlug, cancellationToken))
+        {
+            var listingId = Guid.NewGuid();
+            context.Listings.Add(new Listing
+            {
+                Id = listingId,
+                HostId = hostOneId,
+                Type = ListingType.Beach,
+                Status = ListingStatus.Active,
+                IsActive = true,
+                IsFeatured = true,
+                Slug = beachSlug,
+                Title = new Dictionary<string, string>
+                {
+                    ["tr"] = "Antalya Lara Coral Beach",
+                    ["en"] = "Antalya Lara Coral Beach"
+                },
+                Description = new Dictionary<string, string>
+                {
+                    ["tr"] = "Lara sahilinde gun boyu hizmet veren premium beach deneyimi.",
+                    ["en"] = "Premium all-day beach experience on Lara coast."
+                },
+                Address = new Dictionary<string, string>
+                {
+                    ["tr"] = "Lara Sahil Yolu No:18",
+                    ["en"] = "Lara Coast Road No:18"
+                },
+                City = "Antalya",
+                Country = "Turkey",
+                Latitude = 36.8520m,
+                Longitude = 30.8000m,
+                Location = CreatePoint(36.8520m, 30.8000m),
+                MaxGuestCount = 6,
+                BasePricePerHour = 42m,
+                BasePricePerDay = 210m,
+                PriceRangeMin = 170m,
+                PriceRangeMax = 350m,
+                PriceCurrency = "EUR",
+                CreatedAt = now.AddDays(-10),
+                UpdatedAt = now.AddDays(-1),
+                Rating = 4.7m,
+                ReviewCount = 12,
+                SpotCount = 28,
+                IsSuperhost = true
+            });
+
+            context.ListingImages.Add(new ListingImage
+            {
+                Id = Guid.NewGuid(),
+                ListingId = listingId,
+                Url = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
+                Alt = "Lara coral beach",
+                DisplayOrder = 0,
+                IsCover = true
+            });
+
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "wifi");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "parking");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "shower");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "restaurant");
+            createdRecords.Add(beachSlug);
+        }
+
+        const string poolSlug = "istanbul-bosphorus-sky-pool";
+        if (!await context.Listings.AnyAsync(x => x.Slug == poolSlug, cancellationToken))
+        {
+            var listingId = Guid.NewGuid();
+            context.Listings.Add(new Listing
+            {
+                Id = listingId,
+                HostId = hostOneId,
+                Type = ListingType.Pool,
+                Status = ListingStatus.Active,
+                IsActive = true,
+                IsFeatured = false,
+                Slug = poolSlug,
+                Title = new Dictionary<string, string>
+                {
+                    ["tr"] = "Istanbul Bosphorus Sky Pool",
+                    ["en"] = "Istanbul Bosphorus Sky Pool"
+                },
+                Description = new Dictionary<string, string>
+                {
+                    ["tr"] = "Bogaz manzarali rooftop pool ve lounge deneyimi.",
+                    ["en"] = "Rooftop pool and lounge with Bosphorus view."
+                },
+                Address = new Dictionary<string, string>
+                {
+                    ["tr"] = "Ortakoy Dereboyu Cad. No:9",
+                    ["en"] = "Ortakoy Dereboyu St. No:9"
+                },
+                City = "Istanbul",
+                Country = "Turkey",
+                Latitude = 41.0485m,
+                Longitude = 29.0266m,
+                Location = CreatePoint(41.0485m, 29.0266m),
+                MaxGuestCount = 5,
+                BasePricePerHour = 38m,
+                BasePricePerDay = 175m,
+                PriceRangeMin = 140m,
+                PriceRangeMax = 290m,
+                PriceCurrency = "TRY",
+                CreatedAt = now.AddDays(-9),
+                UpdatedAt = now.AddDays(-1),
+                Rating = 4.5m,
+                ReviewCount = 9,
+                SpotCount = 24,
+                IsSuperhost = false
+            });
+
+            context.ListingImages.Add(new ListingImage
+            {
+                Id = Guid.NewGuid(),
+                ListingId = listingId,
+                Url = "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?auto=format&fit=crop&w=1200&q=80",
+                Alt = "Bosphorus sky pool",
+                DisplayOrder = 0,
+                IsCover = true
+            });
+
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "wifi");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "shower");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "restaurant");
+            createdRecords.Add(poolSlug);
+        }
+
+        const string yachtSlug = "bodrum-private-yacht-tour";
+        if (!await context.Listings.AnyAsync(x => x.Slug == yachtSlug, cancellationToken))
+        {
+            var listingId = Guid.NewGuid();
+            context.Listings.Add(new Listing
+            {
+                Id = listingId,
+                HostId = hostTwoId,
+                Type = ListingType.Yacht,
+                Status = ListingStatus.Active,
+                IsActive = true,
+                IsFeatured = true,
+                Slug = yachtSlug,
+                Title = new Dictionary<string, string>
+                {
+                    ["tr"] = "Bodrum Private Yacht Tour",
+                    ["en"] = "Bodrum Private Yacht Tour"
+                },
+                Description = new Dictionary<string, string>
+                {
+                    ["tr"] = "Profesyonel kaptan ve premium servis ile ozel yat turu.",
+                    ["en"] = "Private yacht tour with professional captain and premium service."
+                },
+                Address = new Dictionary<string, string>
+                {
+                    ["tr"] = "Bodrum Marina Iskele 3",
+                    ["en"] = "Bodrum Marina Pier 3"
+                },
+                City = "Bodrum",
+                Country = "Turkey",
+                Latitude = 37.0310m,
+                Longitude = 27.4280m,
+                Location = CreatePoint(37.0310m, 27.4280m),
+                MaxGuestCount = 10,
+                BasePricePerHour = 135m,
+                BasePricePerDay = 1050m,
+                PriceRangeMin = 900m,
+                PriceRangeMax = 1950m,
+                PriceCurrency = "EUR",
+                Details = "{\"length\":\"20m\",\"cabins\":4,\"crew\":3,\"model\":\"Sunseeker 62\"}",
+                Duration = "Full day",
+                CreatedAt = now.AddDays(-12),
+                UpdatedAt = now.AddDays(-2),
+                Rating = 4.9m,
+                ReviewCount = 15,
+                SpotCount = 10,
+                IsSuperhost = true
+            });
+
+            context.ListingImages.Add(new ListingImage
+            {
+                Id = Guid.NewGuid(),
+                ListingId = listingId,
+                Url = "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1200&q=80",
+                Alt = "Bodrum private yacht",
+                DisplayOrder = 0,
+                IsCover = true
+            });
+
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "wifi");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "captain");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "lifejacket");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "restaurant");
+            createdRecords.Add(yachtSlug);
+        }
+
+        const string dayTripSlug = "antalya-kekova-day-trip-tour";
+        if (!await context.Listings.AnyAsync(x => x.Slug == dayTripSlug, cancellationToken))
+        {
+            var listingId = Guid.NewGuid();
+            context.Listings.Add(new Listing
+            {
+                Id = listingId,
+                HostId = hostTwoId,
+                Type = ListingType.DayTrip,
+                Status = ListingStatus.Active,
+                IsActive = true,
+                IsFeatured = false,
+                Slug = dayTripSlug,
+                Title = new Dictionary<string, string>
+                {
+                    ["tr"] = "Antalya Kekova Day Trip Tour",
+                    ["en"] = "Antalya Kekova Day Trip Tour"
+                },
+                Description = new Dictionary<string, string>
+                {
+                    ["tr"] = "Yuzme molali, yemek dahil gunluk tekne turu.",
+                    ["en"] = "Daily boat tour with swim stops and lunch included."
+                },
+                Address = new Dictionary<string, string>
+                {
+                    ["tr"] = "Kas Liman Iskele 1",
+                    ["en"] = "Kas Harbor Pier 1"
+                },
+                City = "Antalya",
+                Country = "Turkey",
+                Latitude = 36.1966m,
+                Longitude = 29.6421m,
+                Location = CreatePoint(36.1966m, 29.6421m),
+                MaxGuestCount = 18,
+                BasePricePerHour = 28m,
+                BasePricePerDay = 120m,
+                PriceRangeMin = 90m,
+                PriceRangeMax = 220m,
+                PriceCurrency = "EUR",
+                Details = "{\"route\":[\"Ucagiz\",\"Kekova\",\"Tersane Bay\"],\"included\":[\"Lunch\",\"Soft drinks\"]}",
+                Duration = "8 hours",
+                CreatedAt = now.AddDays(-8),
+                UpdatedAt = now.AddDays(-1),
+                Rating = 4.6m,
+                ReviewCount = 11,
+                SpotCount = 18,
+                IsSuperhost = false
+            });
+
+            context.ListingImages.Add(new ListingImage
+            {
+                Id = Guid.NewGuid(),
+                ListingId = listingId,
+                Url = "https://images.unsplash.com/photo-1528150177508-62a5f72e5678?auto=format&fit=crop&w=1200&q=80",
+                Alt = "Kekova day trip",
+                DisplayOrder = 0,
+                IsCover = true
+            });
+
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "captain");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "lifejacket");
+            AddListingAmenityIfExists(context, listingId, amenityByIcon, "restaurant");
+            createdRecords.Add(dayTripSlug);
+        }
+
+        const string blogSlug = "summer-beach-and-boat-guide";
+        if (!await context.BlogPosts.AnyAsync(x => x.Slug == blogSlug, cancellationToken))
+        {
+            context.BlogPosts.Add(new BlogPost
+            {
+                Id = Guid.NewGuid(),
+                AuthorId = adminId,
+                Slug = blogSlug,
+                Title = new Dictionary<string, string>
+                {
+                    ["tr"] = "Yaz Sezonu Beach ve Boat Tour Rehberi",
+                    ["en"] = "Summer Beach and Boat Tour Guide"
+                },
+                Description = new Dictionary<string, string>
+                {
+                    ["tr"] = "Beach, pool ve tekne turu secimleri icin hizli karar rehberi.",
+                    ["en"] = "Quick decision guide for beach, pool and boat tour selections."
+                },
+                Content = new Dictionary<string, string>
+                {
+                    ["tr"] = "<p>Rezervasyon oncesi lokasyon, kapasite ve hizmet kapsamlarini karsilastirin.</p>",
+                    ["en"] = "<p>Compare location, capacity and included services before booking.</p>"
+                },
+                ImageUrl = "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=80",
+                Category = "guide",
+                Tags = new List<string> { "beach", "pool", "yacht", "day-trip" },
+                ReadTime = 4,
+                IsPublished = true,
+                IsFeatured = false,
+                PublishedAt = now.AddDays(-1),
+                CreatedAt = now.AddDays(-2),
+                UpdatedAt = now.AddDays(-1),
+                ViewCount = 0
+            });
+
+            createdRecords.Add(blogSlug);
+        }
+
+        if (!await context.Destinations.AnyAsync(x => x.Slug == "antalya", cancellationToken))
+        {
+            context.Destinations.Add(new Destination
+            {
+                Id = Guid.NewGuid(),
+                Name = "Antalya",
+                Slug = "antalya",
+                Country = "Turkey",
+                Description = "Warm waters, beaches and day-trip routes.",
+                Subtitle = "Mediterranean destination",
+                ImageUrl = "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1200&q=80",
+                MapImageUrl = "https://images.unsplash.com/photo-1527838832700-5059252407fa?auto=format&fit=crop&w=1200&q=80",
+                Location = CreatePoint(36.8969m, 30.7133m),
+                Latitude = 36.8969,
+                Longitude = 30.7133,
+                AvgWaterTemp = "25C",
+                SunnyDaysPerYear = 300,
+                AverageRating = 4.6,
+                SpotCount = 40,
+                Tags = new List<string> { "beach", "day-trip", "mediterranean" },
+                Features = new List<DestinationFeature>
+                {
+                    new() { Icon = "sun", Title = "Long season", Description = "Sunny weather for most of the year" },
+                    new() { Icon = "family", Title = "Family friendly", Description = "Suitable options for groups and families" }
+                },
+                IsFeatured = true,
+                IsActive = true,
+                CreatedAt = now.AddDays(-5),
+                UpdatedAt = now.AddDays(-1)
+            });
+
+            createdRecords.Add("antalya");
+        }
+
+        if (createdRecords.Count == 0)
+        {
+            return;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Detail-page dummy seed inserted. Slugs: {Slugs}", string.Join(", ", createdRecords));
+    }
+
+    private static void AddListingAmenityIfExists(
+        ApplicationDbContext context,
+        Guid listingId,
+        IReadOnlyDictionary<string, Guid> amenityByIcon,
+        string icon)
+    {
+        if (!amenityByIcon.TryGetValue(icon, out var amenityId))
+        {
+            return;
+        }
+
+        context.ListingAmenities.Add(new ListingAmenity
+        {
+            ListingId = listingId,
+            AmenityId = amenityId,
+            IsEnabled = true
+        });
     }
 
     private static Point CreatePoint(decimal latitude, decimal longitude)

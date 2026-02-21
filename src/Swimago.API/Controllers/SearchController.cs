@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Swimago.Application.DTOs.Search;
 using Swimago.Application.Interfaces;
+using Swimago.Domain.Enums;
+using Swimago.Domain.Interfaces;
 
 namespace Swimago.API.Controllers;
 
@@ -14,11 +16,16 @@ namespace Swimago.API.Controllers;
 public class SearchController : ControllerBase
 {
     private readonly ISearchService _searchService;
+    private readonly IAmenityRepository _amenityRepository;
     private readonly ILogger<SearchController> _logger;
 
-    public SearchController(ISearchService searchService, ILogger<SearchController> logger)
+    public SearchController(
+        ISearchService searchService,
+        IAmenityRepository amenityRepository,
+        ILogger<SearchController> logger)
     {
         _searchService = searchService;
+        _amenityRepository = amenityRepository;
         _logger = logger;
     }
 
@@ -51,6 +58,38 @@ public class SearchController : ControllerBase
 
         var response = await _searchService.SearchCustomerListingsAsync(query, userId, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Get active amenities for customer filter chips
+    /// </summary>
+    /// <param name="viewType">Optional view type filter (Beach|Pool)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Active amenity list for customer search filters</returns>
+    [HttpGet("amenities")]
+    [ProducesResponseType(typeof(CustomerAmenityListResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCustomerAmenities([FromQuery] string? viewType, CancellationToken cancellationToken)
+    {
+        var amenities = (await _amenityRepository.GetActiveAsync(cancellationToken)).ToList();
+
+        if (TryParseViewType(viewType, out var listingType))
+        {
+            amenities = amenities
+                .Where(x => x.ApplicableTo == null || x.ApplicableTo.Count == 0 || x.ApplicableTo.Contains(listingType))
+                .ToList();
+        }
+
+        var items = amenities
+            .Select(x => new CustomerAmenityItemDto(
+                Id: x.Id,
+                Name: GetLocalizedText(x.Label),
+                Icon: x.Icon,
+                Category: x.Category))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .OrderBy(x => x.Name)
+            .ToList();
+
+        return Ok(new CustomerAmenityListResponse(items, items.Count));
     }
 
     /// <summary>
@@ -118,5 +157,48 @@ public class SearchController : ControllerBase
 
         var suggestions = await _searchService.GetSearchSuggestionsAsync(term, cancellationToken);
         return Ok(suggestions);
+    }
+
+    private static bool TryParseViewType(string? value, out ListingType listingType)
+    {
+        listingType = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (value.Equals("beach", StringComparison.OrdinalIgnoreCase))
+        {
+            listingType = ListingType.Beach;
+            return true;
+        }
+
+        if (value.Equals("pool", StringComparison.OrdinalIgnoreCase))
+        {
+            listingType = ListingType.Pool;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string GetLocalizedText(Dictionary<string, string>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (values.TryGetValue("tr", out var tr) && !string.IsNullOrWhiteSpace(tr))
+        {
+            return tr;
+        }
+
+        if (values.TryGetValue("en", out var en) && !string.IsNullOrWhiteSpace(en))
+        {
+            return en;
+        }
+
+        return values.Values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
     }
 }

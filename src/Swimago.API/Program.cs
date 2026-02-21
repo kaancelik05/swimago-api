@@ -91,6 +91,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.HostOnly, policy =>
         policy.RequireAuthenticatedUser().RequireRole(Role.Host.ToString()));
 
+    options.AddPolicy(AuthorizationPolicies.HostOrAdmin, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(Role.Host.ToString(), Role.Admin.ToString()));
+
     options.AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
         policy.RequireAuthenticatedUser().RequireRole(Role.Admin.ToString()));
 });

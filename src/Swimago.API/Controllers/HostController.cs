@@ -7,7 +7,7 @@ using System.Security.Claims;
 
 namespace Swimago.API.Controllers;
 
-[Authorize(Policy = AuthorizationPolicies.HostOnly)]
+[Authorize(Policy = AuthorizationPolicies.HostOrAdmin)]
 [ApiController]
 [Route("api/host")]
 [Produces("application/json")]

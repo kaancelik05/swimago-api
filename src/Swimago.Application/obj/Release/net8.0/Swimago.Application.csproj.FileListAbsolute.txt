@@ -1,0 +1,16 @@
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/bin/Release/net8.0/Swimago.Application.deps.json
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/bin/Release/net8.0/Swimago.Application.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/bin/Release/net8.0/Swimago.Application.pdb
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/bin/Release/net8.0/Swimago.Domain.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/bin/Release/net8.0/Swimago.Domain.pdb
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.csproj.AssemblyReference.cache
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.GeneratedMSBuildEditorConfig.editorconfig
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.AssemblyInfoInputs.cache
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.AssemblyInfo.cs
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.csproj.CoreCompileInputs.cache
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.sourcelink.json
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago..BFB69CC5.Up2Date
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/refint/Swimago.Application.dll
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/Swimago.Application.pdb
+/Users/kaancelik/my-projects/swimago-stich-api/src/Swimago.Application/obj/Release/net8.0/ref/Swimago.Application.dll

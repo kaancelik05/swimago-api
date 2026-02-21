@@ -15,18 +15,19 @@ public class MappingProfile : Profile
     {
         // Common
         CreateMap<Dictionary<string, string>, MultiLanguageDto>()
-            .ConvertUsing(src => new MultiLanguageDto(
-                src.GetValueOrDefault("tr") ?? "",
-                src.GetValueOrDefault("en"),
-                src.GetValueOrDefault("de"),
-                src.GetValueOrDefault("ru")
-            ));
+            .ConvertUsing(src => MultiLanguageDto.FromDictionary(src));
 
         // Listings
         CreateMap<Listing, ListingResponse>()
-            .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title))
-            .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description))
-            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
+            .ForMember(dest => dest.Title, opt => opt.MapFrom(src => src.Title ?? new Dictionary<string, string>()))
+            .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description ?? new Dictionary<string, string>()))
+            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address ?? new Dictionary<string, string>()))
+            .ForMember(dest => dest.Currency, opt => opt.MapFrom(src => src.PriceCurrency ?? "USD"))
+            .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.Images.OrderBy(i => i.DisplayOrder)))
+            .ForMember(dest => dest.Amenities, opt => opt.MapFrom(src =>
+                src.Amenities
+                    .Where(la => la.IsEnabled && la.Amenity != null)
+                    .Select(la => la.Amenity!)))
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()));
 
         CreateMap<ListingImage, ListingImageDto>()
@@ -36,7 +37,7 @@ public class MappingProfile : Profile
 
         CreateMap<Amenity, AmenityDto>()
             .ForMember(dest => dest.Icon, opt => opt.MapFrom(src => src.Icon))
-            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Label));
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Label ?? new Dictionary<string, string>()));
 
         CreateMap<CreateListingRequest, Listing>()
             .ForMember(dest => dest.Images, opt => opt.Ignore())

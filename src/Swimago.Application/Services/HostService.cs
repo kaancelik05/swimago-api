@@ -56,7 +56,7 @@ public class HostService : IHostService
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
             var parsedStatus = ParseListingStatus(status);
-            listings = listings.Where(x => x.Status == parsedStatus).ToList();
+            listings = listings.Where(x => MatchesListingStatusFilter(x.Status, parsedStatus)).ToList();
         }
 
         if (!string.IsNullOrWhiteSpace(type) && !string.Equals(type, "all", StringComparison.OrdinalIgnoreCase))
@@ -1079,6 +1079,7 @@ public class HostService : IHostService
             "beach" => ListingType.Beach,
             "pool" => ListingType.Pool,
             "yacht" => ListingType.Yacht,
+            "daytrip" => ListingType.DayTrip,
             "day-trip" => ListingType.DayTrip,
             _ => throw new ArgumentException("type beach|pool|yacht|day-trip olmalı")
         };
@@ -1102,9 +1103,12 @@ public class HostService : IHostService
         {
             "active" => ListingStatus.Active,
             "pending" => ListingStatus.Pending,
+            "draft" => ListingStatus.Draft,
+            "pendingreview" => ListingStatus.PendingReview,
+            "pending-review" => ListingStatus.PendingReview,
             "inactive" => ListingStatus.Inactive,
             "rejected" => ListingStatus.Rejected,
-            _ => throw new ArgumentException("status active|pending|inactive|rejected olmalı")
+            _ => throw new ArgumentException("status active|pending|draft|pending-review|inactive|rejected olmalı")
         };
     }
 
@@ -1114,10 +1118,29 @@ public class HostService : IHostService
         {
             ListingStatus.Active => "active",
             ListingStatus.Pending => "pending",
+            ListingStatus.Draft => "pending",
+            ListingStatus.PendingReview => "pending",
             ListingStatus.Inactive => "inactive",
             ListingStatus.Rejected => "rejected",
             _ => "pending"
         };
+    }
+
+    private static bool MatchesListingStatusFilter(ListingStatus current, ListingStatus requested)
+    {
+        if (requested == ListingStatus.Pending)
+        {
+            return current == ListingStatus.Pending ||
+                   current == ListingStatus.Draft ||
+                   current == ListingStatus.PendingReview;
+        }
+
+        if (requested == ListingStatus.Draft || requested == ListingStatus.PendingReview)
+        {
+            return current == requested;
+        }
+
+        return current == requested;
     }
 
     private static ReservationStatus ParseReservationStatus(string? value)
@@ -1154,6 +1177,7 @@ public class HostService : IHostService
         {
             "online" => ReservationSource.Online,
             "phone" => ReservationSource.Phone,
+            "walkin" => ReservationSource.WalkIn,
             "walk-in" => ReservationSource.WalkIn,
             _ => throw new ArgumentException("source online|phone|walk-in olmalı")
         };
