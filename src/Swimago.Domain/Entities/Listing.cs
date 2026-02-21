@@ -1,9 +1,10 @@
+using Swimago.Domain.Common;
 using Swimago.Domain.Enums;
 using NetTopologySuite.Geometries;
 
 namespace Swimago.Domain.Entities;
 
-public class Listing
+public class Listing : ISoftDeletable
 {
     public Guid Id { get; set; }
     public Guid HostId { get; set; }
@@ -68,6 +69,10 @@ public class Listing
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
     public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
     public HostListingMetadata? HostMetadata { get; set; }
+
+    // ISoftDeletable
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }
 
 // Embedded class for conditions stored as JSONB

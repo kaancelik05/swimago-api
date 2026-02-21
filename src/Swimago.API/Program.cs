@@ -5,60 +5,30 @@ using Swimago.API.Authorization;
 using Swimago.Infrastructure.Data;
 using Swimago.Application;
 using Swimago.Domain.Enums;
+using Swimago.Infrastructure;
 using System.Text;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, loggerConfig) => loggerConfig
+    .ReadFrom.Configuration(context.Configuration)
+    .WriteTo.Console()
+    .Enrich.FromLogContext());
 var seedMockData = builder.Configuration.GetValue<bool>("MockSeed:Enabled");
 
-// Add DbContext with PostgreSQL and PostGIS
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        npgsqlOptions =>
-        {
-            npgsqlOptions.UseNetTopologySuite(); // Enable PostGIS support
-            npgsqlOptions.MigrationsAssembly("Swimago.Infrastructure"); // Migrations in Infrastructure project
-        });
-});
-
-// Register Repositories
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IUnitOfWork, Swimago.Infrastructure.Repositories.UnitOfWork>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IUserRepository, Swimago.Infrastructure.Repositories.UserRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IListingRepository, Swimago.Infrastructure.Repositories.ListingRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IReservationRepository, Swimago.Infrastructure.Repositories.ReservationRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IReviewRepository, Swimago.Infrastructure.Repositories.ReviewRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IBlogPostRepository, Swimago.Infrastructure.Repositories.BlogPostRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IBlogCommentRepository, Swimago.Infrastructure.Repositories.BlogCommentRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IFavoriteRepository, Swimago.Infrastructure.Repositories.FavoriteRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IPaymentMethodRepository, Swimago.Infrastructure.Repositories.PaymentMethodRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.INewsletterRepository, Swimago.Infrastructure.Repositories.NewsletterRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.ICityRepository, Swimago.Infrastructure.Repositories.CityRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IAmenityRepository, Swimago.Infrastructure.Repositories.AmenityRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IDailyPricingRepository, Swimago.Infrastructure.Repositories.DailyPricingRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IHostBusinessSettingsRepository, Swimago.Infrastructure.Repositories.HostBusinessSettingsRepository>();
-builder.Services.AddScoped<Swimago.Domain.Interfaces.IHostListingMetadataRepository, Swimago.Infrastructure.Repositories.HostListingMetadataRepository>();
-
-// Register Application Services (including Validators)
+// Register Application and Infrastructure Services
+builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 
-// Register Services
-builder.Services.AddScoped<Swimago.Application.Interfaces.ITokenService, Swimago.Infrastructure.Services.TokenService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IAuthService, Swimago.Infrastructure.Services.AuthService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IReservationService, Swimago.Application.Services.ReservationService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IPricingService, Swimago.Application.Services.PricingService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IReviewService, Swimago.Application.Services.ReviewService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.ISearchService, Swimago.Application.Services.SearchService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IBlogService, Swimago.Application.Services.BlogService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IEmailService, Swimago.Infrastructure.Services.EmailService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IFileStorageService, Swimago.Infrastructure.Services.CloudflareR2Service>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.ITranslationService, Swimago.Infrastructure.Services.TranslationService>();
+// Exception Handling
+builder.Services.AddExceptionHandler<Swimago.API.Infrastructure.GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
-// Admin Services
-builder.Services.AddScoped<Swimago.Application.Interfaces.IAdminDestinationService, Swimago.Infrastructure.Services.Admin.AdminDestinationService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IAdminListingService, Swimago.Infrastructure.Services.Admin.AdminListingService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IAdminBlogService, Swimago.Infrastructure.Services.Admin.AdminBlogService>();
-builder.Services.AddScoped<Swimago.Application.Interfaces.IAdminMediaService, Swimago.Infrastructure.Services.Admin.AdminMediaService>();
+// Caching and HealthChecks
+builder.Services.AddOutputCache();
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!);
 
 
 // Configure JWT Authentication
@@ -80,6 +50,20 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecretKey"]!)),
         NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier,
         RoleClaimType = System.Security.Claims.ClaimTypes.Role
+    };
+
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var blacklistService = context.HttpContext.RequestServices.GetRequiredService<Swimago.Application.Interfaces.ITokenBlacklistService>();
+            var token = context.Request.Headers.Authorization.FirstOrDefault()?.Replace("Bearer ", "");
+            
+            if (!string.IsNullOrEmpty(token) && await blacklistService.IsTokenBlacklistedAsync(token))
+            {
+                context.Fail("Token has been revoked.");
+            }
+        }
     };
 });
 
@@ -190,9 +174,10 @@ if (seedMockData)
 }
 
 // Configure the HTTP request pipeline
+app.UseExceptionHandler(); // Uses GlobalExceptionHandler automatically
+app.UseSerilogRequestLogging();
 app.UseMiddleware<Swimago.API.Middleware.SecurityHeadersMiddleware>();
 app.UseMiddleware<Swimago.API.Middleware.RateLimitMiddleware>();
-app.UseMiddleware<Swimago.API.Middleware.ExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -203,6 +188,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
+
+app.UseOutputCache();
+
+app.MapHealthChecks("/health");
 
 app.UseAuthentication();
 app.UseAuthorization();

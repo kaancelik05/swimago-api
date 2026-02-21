@@ -18,11 +18,13 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly ILogger<AuthController> _logger;
+    private readonly ITokenBlacklistService _tokenBlacklistService;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(IAuthService authService, ILogger<AuthController> logger, ITokenBlacklistService tokenBlacklistService)
     {
         _authService = authService;
         _logger = logger;
+        _tokenBlacklistService = tokenBlacklistService;
     }
 
     /// <summary>
@@ -126,8 +128,12 @@ public class AuthController : ControllerBase
             
             _logger.LogInformation("Logout request for user {UserId}", userId);
             
-            // TODO: Implement token blacklisting or session invalidation
-            // For now, client should just discard the token
+            var token = HttpContext.Request.Headers.Authorization.FirstOrDefault()?.Replace("Bearer ", "");
+            if (!string.IsNullOrEmpty(token))
+            {
+                // Set short blacklist duration for logout (e.g. 1 day max for access tokens)
+                await _tokenBlacklistService.BlacklistTokenAsync(token, TimeSpan.FromDays(1));
+            }
             
             _logger.LogInformation("User {UserId} logged out successfully", userId);
             

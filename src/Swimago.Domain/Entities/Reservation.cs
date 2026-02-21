@@ -1,8 +1,9 @@
+using Swimago.Domain.Common;
 using Swimago.Domain.Enums;
 
 namespace Swimago.Domain.Entities;
 
-public class Reservation
+public class Reservation : ISoftDeletable
 {
     public Guid Id { get; set; }
     public Guid ListingId { get; set; }
@@ -53,6 +54,10 @@ public class Reservation
     public User Guest { get; set; } = null!;
     public ReservationPayment? Payment { get; set; }
     public Review? Review { get; set; }
+
+    // ISoftDeletable
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }
 
 // Embedded classes for JSONB storage

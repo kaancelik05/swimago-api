@@ -477,6 +477,9 @@ namespace Swimago.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("jsonb");
@@ -491,6 +494,9 @@ namespace Swimago.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsFeatured")
@@ -769,6 +775,9 @@ namespace Swimago.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal?>("DiscountAmount")
                         .HasColumnType("numeric");
 
@@ -786,6 +795,9 @@ namespace Swimago.Infrastructure.Migrations
 
                     b.Property<string>("Guests")
                         .HasColumnType("jsonb");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("ListingId")
                         .HasColumnType("uuid");
